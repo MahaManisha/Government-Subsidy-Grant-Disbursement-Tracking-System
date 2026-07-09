@@ -4,6 +4,7 @@ import com.gov.subsidy.dto.ApplicationCreateDto;
 import com.gov.subsidy.dto.ApplicationDto;
 import com.gov.subsidy.entity.Application;
 import com.gov.subsidy.enums.ApplicationStatus;
+import com.gov.subsidy.enums.EligibilityResult;
 import com.gov.subsidy.enums.PriorityLevel;
 import com.gov.subsidy.enums.WorkflowStage;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,7 @@ public class ApplicationMapper implements GenericMapper<Application, Application
                 .workflowStatus(entity.getWorkflowStatus() == null ? null : entity.getWorkflowStatus().name())
                 .currentStage(entity.getCurrentStage() == null ? null : entity.getCurrentStage().name())
                 .eligibilityScore(entity.getEligibilityScore())
+                .eligibilityResult(entity.getEligibilityResult() == null ? null : entity.getEligibilityResult().name())
                 .assignedOfficer(userMapper.toDto(entity.getAssignedOfficer()))
                 .submittedDate(entity.getSubmittedDate())
                 .verifiedDate(entity.getVerifiedDate())
@@ -72,6 +74,7 @@ public class ApplicationMapper implements GenericMapper<Application, Application
                 .workflowStatus(dto.getWorkflowStatus() == null ? null : ApplicationStatus.valueOf(dto.getWorkflowStatus()))
                 .currentStage(dto.getCurrentStage() == null ? null : WorkflowStage.valueOf(dto.getCurrentStage()))
                 .eligibilityScore(dto.getEligibilityScore())
+                .eligibilityResult(dto.getEligibilityResult() == null ? null : EligibilityResult.valueOf(dto.getEligibilityResult()))
                 .assignedOfficer(userMapper.toEntity(dto.getAssignedOfficer()))
                 .submittedDate(dto.getSubmittedDate())
                 .verifiedDate(dto.getVerifiedDate())

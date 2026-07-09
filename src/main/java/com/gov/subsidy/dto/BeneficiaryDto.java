@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -22,6 +23,7 @@ public class BeneficiaryDto {
     private String bankAccountNumber;
     private String bankIfscCode;
     private BigDecimal annualIncome;
+    private LocalDate dateOfBirth;
     private String eligibilityStatus;
     private String gender;
     private String category;

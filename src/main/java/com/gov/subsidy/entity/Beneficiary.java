@@ -8,6 +8,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Entity
@@ -54,6 +55,10 @@ public class Beneficiary extends BaseEntity {
     @Pattern(regexp = "^[A-Z]{4}0[A-Z0-9]{6}$", message = "IFSC code must be valid (e.g. SBIN0001234)")
     @Column(name = "bank_ifsc_code", nullable = false, length = 11)
     private String bankIfscCode;
+
+    @Past(message = "Date of birth must be in the past")
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
     @NotNull(message = "Annual income is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Annual income must be a positive value")

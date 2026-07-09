@@ -4,176 +4,365 @@ import com.gov.subsidy.constant.ApiConstants;
 import com.gov.subsidy.dto.BaseResponse;
 import com.gov.subsidy.dto.BeneficiaryCreateDto;
 import com.gov.subsidy.dto.BeneficiaryDto;
-import com.gov.subsidy.dto.UserDto;
+import com.gov.subsidy.dto.BeneficiaryUpdateDto;
+import com.gov.subsidy.exception.ErrorDetails;
+import com.gov.subsidy.service.BeneficiaryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * REST controller exposing all CRUD endpoints for the Beneficiary Management module.
+ *
+ * <p>Base URL: {@code /api/v1/beneficiaries}</p>
+ *
+ * <p>All endpoints return a {@link BaseResponse} wrapper containing:
+ * <ul>
+ *   <li>{@code success} — boolean flag indicating outcome</li>
+ *   <li>{@code message} — human-readable summary of the result</li>
+ *   <li>{@code data} — the response payload (may be {@code null} for 204 / error scenarios)</li>
+ *   <li>{@code timestamp} — UTC timestamp of the response</li>
+ * </ul>
+ * </p>
+ */
 @RestController
 @RequestMapping(ApiConstants.API_V1_PREFIX + "/beneficiaries")
+@Tag(
+        name = "Beneficiary Management",
+        description = "CRUD operations for managing beneficiary profiles in the Government Subsidy " +
+                "Disbursement Tracking System. Each beneficiary represents an eligible citizen who " +
+                "may receive government grants or subsidies."
+)
 public class BeneficiaryController {
 
-    @PostMapping
-    public ResponseEntity<BaseResponse<BeneficiaryDto>> createBeneficiary(@Valid @RequestBody BeneficiaryCreateDto createDto) {
-        BeneficiaryDto mockBeneficiary = BeneficiaryDto.builder()
-                .id(1L)
-                .user(UserDto.builder()
-                        .id(createDto.getUserId())
-                        .username("citizen_user")
-                        .email("citizen@gov.in")
-                        .firstName("Citizen")
-                        .lastName("One")
-                        .active(true)
-                        .roles(Collections.singleton("ROLE_BENEFICIARY"))
-                        .build())
-                .uniqueIdNumber(createDto.getUniqueIdNumber())
-                .phoneNumber(createDto.getPhoneNumber())
-                .address(createDto.getAddress())
-                .bankAccountNumber(createDto.getBankAccountNumber())
-                .bankIfscCode(createDto.getBankIfscCode())
-                .annualIncome(createDto.getAnnualIncome())
-                .eligibilityStatus(createDto.getEligibilityStatus())
-                .gender(createDto.getGender())
-                .category(createDto.getCategory())
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
+    private final BeneficiaryService beneficiaryService;
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(BaseResponse.success(mockBeneficiary, "Beneficiary profile created successfully"));
+    public BeneficiaryController(BeneficiaryService beneficiaryService) {
+        this.beneficiaryService = beneficiaryService;
     }
+
+    // =========================================================================
+    // POST /v1/beneficiaries — Create Beneficiary
+    // =========================================================================
+
+    @PostMapping
+    @Operation(
+            summary = "Create a new beneficiary profile",
+            description = "Registers a new beneficiary in the system. " +
+                    "Validates that the Aadhaar number, phone number, and bank account number " +
+                    "are unique. Optionally links the beneficiary to an existing user account."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Beneficiary profile created successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Created",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "message": "Beneficiary profile created successfully",
+                                              "data": {
+                                                "id": 1,
+                                                "user": null,
+                                                "uniqueIdNumber": "123456789012",
+                                                "phoneNumber": "9876543210",
+                                                "address": "123, Green Valley, New Delhi, 110001",
+                                                "bankAccountNumber": "918273645281",
+                                                "bankIfscCode": "SBIN0001234",
+                                                "annualIncome": 150000.00,
+                                                "eligibilityStatus": "PENDING",
+                                                "gender": "MALE",
+                                                "category": "OBC",
+                                                "createdAt": "2026-07-09T10:00:00",
+                                                "updatedAt": "2026-07-09T10:00:00",
+                                                "createdBy": "SYSTEM",
+                                                "updatedBy": "SYSTEM"
+                                              },
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Validation failed — one or more input fields are invalid",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Validation Error",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Input validation failed",
+                                              "data": {
+                                                "timestamp": "2026-07-09T10:00:00",
+                                                "message": "Validation failed",
+                                                "details": "uri=/api/v1/beneficiaries",
+                                                "validationErrors": [
+                                                  "Aadhaar number must be exactly 12 digits",
+                                                  "IFSC code must be valid (e.g. SBIN0001234)"
+                                                ]
+                                              },
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Conflict — Aadhaar number, phone number, or bank account number already exists",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Duplicate Aadhaar",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Duplicate resource conflict",
+                                              "data": {
+                                                "timestamp": "2026-07-09T10:00:00",
+                                                "message": "A beneficiary with Aadhaar number '123456789012' already exists.",
+                                                "details": "uri=/api/v1/beneficiaries"
+                                              },
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "User not found — the provided userId does not match any user account",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            )
+    })
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> createBeneficiary(
+            @Valid @RequestBody BeneficiaryCreateDto createDto) {
+
+        BeneficiaryDto created = beneficiaryService.createBeneficiary(createDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(BaseResponse.success(created, "Beneficiary profile created successfully"));
+    }
+
+    // =========================================================================
+    // GET /v1/beneficiaries — Get All Beneficiaries
+    // =========================================================================
 
     @GetMapping
+    @Operation(
+            summary = "Retrieve all beneficiary profiles",
+            description = "Returns the complete list of beneficiary profiles currently registered in the system. " +
+                    "An empty list is returned if no beneficiaries have been created yet."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Beneficiary list fetched successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "List",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "message": "Beneficiary list fetched successfully",
+                                              "data": [
+                                                {
+                                                  "id": 1,
+                                                  "uniqueIdNumber": "123456789012",
+                                                  "phoneNumber": "9876543210",
+                                                  "address": "123, Green Valley, New Delhi, 110001",
+                                                  "bankAccountNumber": "918273645281",
+                                                  "bankIfscCode": "SBIN0001234",
+                                                  "annualIncome": 150000.00,
+                                                  "eligibilityStatus": "VERIFIED",
+                                                  "gender": "MALE",
+                                                  "category": "OBC"
+                                                }
+                                              ],
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
     public ResponseEntity<BaseResponse<List<BeneficiaryDto>>> getAllBeneficiaries() {
-        BeneficiaryDto mockBeneficiary1 = BeneficiaryDto.builder()
-                .id(1L)
-                .user(UserDto.builder()
-                        .id(101L)
-                        .username("ram_kumar")
-                        .email("ram@gmail.com")
-                        .firstName("Ram")
-                        .lastName("Kumar")
-                        .active(true)
-                        .roles(Collections.singleton("ROLE_BENEFICIARY"))
-                        .build())
-                .uniqueIdNumber("123456789012")
-                .phoneNumber("9876543210")
-                .address("123, Green Valley, New Delhi")
-                .bankAccountNumber("918273645281")
-                .bankIfscCode("SBIN0000123")
-                .annualIncome(new BigDecimal("150000.00"))
-                .eligibilityStatus("VERIFIED")
-                .gender("MALE")
-                .category("OBC")
-                .createdAt(LocalDateTime.now().minusDays(10))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
-
-        BeneficiaryDto mockBeneficiary2 = BeneficiaryDto.builder()
-                .id(2L)
-                .user(UserDto.builder()
-                        .id(102L)
-                        .username("rahul_verma")
-                        .email("rahul@gmail.com")
-                        .firstName("Rahul")
-                        .lastName("Verma")
-                        .active(true)
-                        .roles(Collections.singleton("ROLE_BENEFICIARY"))
-                        .build())
-                .uniqueIdNumber("987654321098")
-                .phoneNumber("8765432109")
-                .address("456, Rose Garden, Mumbai")
-                .bankAccountNumber("102938475612")
-                .bankIfscCode("ICIC0000456")
-                .annualIncome(new BigDecimal("450000.00"))
-                .eligibilityStatus("PENDING")
-                .gender("MALE")
-                .category("GENERAL")
-                .createdAt(LocalDateTime.now().minusDays(5))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
-
-        List<BeneficiaryDto> mockBeneficiaries = Arrays.asList(mockBeneficiary1, mockBeneficiary2);
-        return ResponseEntity.ok(BaseResponse.success(mockBeneficiaries, "Beneficiary list fetched successfully"));
+        List<BeneficiaryDto> beneficiaries = beneficiaryService.getAllBeneficiaries();
+        return ResponseEntity.ok(BaseResponse.success(beneficiaries, "Beneficiary list fetched successfully"));
     }
+
+    // =========================================================================
+    // GET /v1/beneficiaries/{id} — Get Beneficiary By ID
+    // =========================================================================
 
     @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<BeneficiaryDto>> getBeneficiaryById(@PathVariable Long id) {
-        BeneficiaryDto mockBeneficiary = BeneficiaryDto.builder()
-                .id(id)
-                .user(UserDto.builder()
-                        .id(100L + id)
-                        .username("mock_citizen_" + id)
-                        .email("mock_citizen" + id + "@gmail.com")
-                        .firstName("Citizen")
-                        .lastName(id.toString())
-                        .active(true)
-                        .roles(Collections.singleton("ROLE_BENEFICIARY"))
-                        .build())
-                .uniqueIdNumber("11112222333" + id)
-                .phoneNumber("900000000" + id)
-                .address("Mock Address " + id)
-                .bankAccountNumber("99999999999" + id)
-                .bankIfscCode("HDFC0000111")
-                .annualIncome(new BigDecimal("200000.00"))
-                .eligibilityStatus("VERIFIED")
-                .gender("FEMALE")
-                .category("SC")
-                .createdAt(LocalDateTime.now().minusDays(10))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
+    @Operation(
+            summary = "Retrieve a beneficiary profile by ID",
+            description = "Fetches the full details of a single beneficiary profile identified by its unique ID."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Beneficiary details fetched successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Beneficiary not found",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Not Found",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Resource not found",
+                                              "data": {
+                                                "timestamp": "2026-07-09T10:00:00",
+                                                "message": "Beneficiary not found with ID: 99",
+                                                "details": "uri=/api/v1/beneficiaries/99"
+                                              },
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> getBeneficiaryById(
+            @Parameter(description = "Unique numeric ID of the beneficiary", example = "1", required = true)
+            @PathVariable Long id) {
 
-        return ResponseEntity.ok(BaseResponse.success(mockBeneficiary, "Beneficiary details fetched successfully"));
+        BeneficiaryDto beneficiary = beneficiaryService.getBeneficiaryById(id);
+        return ResponseEntity.ok(BaseResponse.success(beneficiary, "Beneficiary details fetched successfully"));
     }
+
+    // =========================================================================
+    // PUT /v1/beneficiaries/{id} — Update Beneficiary
+    // =========================================================================
 
     @PutMapping("/{id}")
-    public ResponseEntity<BaseResponse<BeneficiaryDto>> updateBeneficiary(@PathVariable Long id, @Valid @RequestBody BeneficiaryCreateDto createDto) {
-        BeneficiaryDto mockBeneficiary = BeneficiaryDto.builder()
-                .id(id)
-                .user(UserDto.builder()
-                        .id(createDto.getUserId())
-                        .username("citizen_user_updated")
-                        .email("citizen_updated@gov.in")
-                        .firstName("Citizen")
-                        .lastName("Updated")
-                        .active(true)
-                        .roles(Collections.singleton("ROLE_BENEFICIARY"))
-                        .build())
-                .uniqueIdNumber(createDto.getUniqueIdNumber())
-                .phoneNumber(createDto.getPhoneNumber())
-                .address(createDto.getAddress())
-                .bankAccountNumber(createDto.getBankAccountNumber())
-                .bankIfscCode(createDto.getBankIfscCode())
-                .annualIncome(createDto.getAnnualIncome())
-                .eligibilityStatus(createDto.getEligibilityStatus())
-                .gender(createDto.getGender())
-                .category(createDto.getCategory())
-                .createdAt(LocalDateTime.now().minusDays(10))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
+    @Operation(
+            summary = "Update an existing beneficiary profile",
+            description = "Updates the mutable fields of an existing beneficiary profile. " +
+                    "The Aadhaar number (uniqueIdNumber) is immutable and cannot be changed. " +
+                    "Phone number and bank account number must remain unique across all beneficiaries."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Beneficiary profile updated successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Validation failed or invalid enum value provided",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Beneficiary not found with the given ID",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Conflict — phone number or bank account number is already in use",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Duplicate Phone",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Duplicate resource conflict",
+                                              "data": {
+                                                "timestamp": "2026-07-09T10:00:00",
+                                                "message": "Phone number '9876543210' is already in use by another beneficiary.",
+                                                "details": "uri=/api/v1/beneficiaries/2"
+                                              },
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> updateBeneficiary(
+            @Parameter(description = "Unique numeric ID of the beneficiary to update", example = "1", required = true)
+            @PathVariable Long id,
+            @Valid @RequestBody BeneficiaryUpdateDto updateDto) {
 
-        return ResponseEntity.ok(BaseResponse.success(mockBeneficiary, "Beneficiary profile updated successfully"));
+        BeneficiaryDto updated = beneficiaryService.updateBeneficiary(id, updateDto);
+        return ResponseEntity.ok(BaseResponse.success(updated, "Beneficiary profile updated successfully"));
     }
 
+    // =========================================================================
+    // DELETE /v1/beneficiaries/{id} — Delete Beneficiary
+    // =========================================================================
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<BaseResponse<Void>> deleteBeneficiary(@PathVariable Long id) {
-        return ResponseEntity.ok(BaseResponse.success(null, "Beneficiary profile with ID " + id + " deleted successfully"));
+    @Operation(
+            summary = "Delete a beneficiary profile",
+            description = "Permanently removes the beneficiary profile with the given ID from the system. " +
+                    "This action is irreversible. Any applications or disbursements linked to this " +
+                    "beneficiary may be affected."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Beneficiary profile deleted successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Deleted",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "message": "Beneficiary profile with ID 1 deleted successfully",
+                                              "data": null,
+                                              "timestamp": "2026-07-09T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Beneficiary not found with the given ID",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            )
+    })
+    public ResponseEntity<BaseResponse<Void>> deleteBeneficiary(
+            @Parameter(description = "Unique numeric ID of the beneficiary to delete", example = "1", required = true)
+            @PathVariable Long id) {
+
+        beneficiaryService.deleteBeneficiary(id);
+        return ResponseEntity.ok(
+                BaseResponse.success(null, "Beneficiary profile with ID " + id + " deleted successfully"));
     }
 }

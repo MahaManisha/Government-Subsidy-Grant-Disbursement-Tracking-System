@@ -23,6 +23,7 @@ public class ApplicationDto {
     private String workflowStatus;
     private String currentStage;
     private Integer eligibilityScore;
+    private String eligibilityResult;
     private UserDto assignedOfficer;
     private LocalDateTime submittedDate;
     private LocalDateTime verifiedDate;

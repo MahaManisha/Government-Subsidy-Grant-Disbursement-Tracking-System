@@ -16,6 +16,22 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(InactiveSchemeException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleInactiveSchemeException(
+            InactiveSchemeException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .timestamp(LocalDateTime.now())
+                .message(ex.getMessage())
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message("Scheme is not active")
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<BaseResponse<ErrorDetails>> handleResourceNotFoundException(ResourceNotFoundException ex, WebRequest request) {
         ErrorDetails details = ErrorDetails.builder()
@@ -62,6 +78,36 @@ public class GlobalExceptionHandler {
         BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
                 .success(false)
                 .message("Input validation failed")
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleDuplicateResourceException(DuplicateResourceException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .timestamp(LocalDateTime.now())
+                .message(ex.getMessage())
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message("Duplicate resource conflict")
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleIllegalArgumentException(IllegalArgumentException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .timestamp(LocalDateTime.now())
+                .message(ex.getMessage())
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message("Invalid argument provided")
                 .data(details)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);

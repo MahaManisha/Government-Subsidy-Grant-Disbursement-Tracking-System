@@ -1,238 +1,247 @@
 package com.gov.subsidy.controller;
 
 import com.gov.subsidy.constant.ApiConstants;
-import com.gov.subsidy.dto.*;
+import com.gov.subsidy.dto.ApplicationCreateDto;
+import com.gov.subsidy.dto.ApplicationDto;
+import com.gov.subsidy.dto.BaseResponse;
+import com.gov.subsidy.service.ApplicationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
+/**
+ * REST controller exposing the Application Submission endpoint.
+ *
+ * <p>Base URL: {@code /v1/applications}</p>
+ *
+ * <p>All responses are wrapped in a {@link BaseResponse} envelope:
+ * <ul>
+ *   <li>{@code success}   — boolean outcome flag</li>
+ *   <li>{@code message}   — human-readable result summary</li>
+ *   <li>{@code data}      — the response payload ({@code null} on error)</li>
+ *   <li>{@code timestamp} — response generation timestamp (ISO-8601)</li>
+ * </ul>
+ * </p>
+ */
 @RestController
 @RequestMapping(ApiConstants.API_V1_PREFIX + "/applications")
+@Tag(
+        name = "Application Submission",
+        description = "Endpoint for beneficiaries to submit subsidy/grant applications. " +
+                "Validates beneficiary existence, scheme existence, scheme active status, " +
+                "and prevents duplicate submissions. Auto-generates a unique application " +
+                "number in the format APP-YYYY-NNNNNN."
+)
 public class ApplicationController {
 
+    private final ApplicationService applicationService;
+
+    public ApplicationController(ApplicationService applicationService) {
+        this.applicationService = applicationService;
+    }
+
+    // =========================================================================
+    // POST /v1/applications — Submit Application
+    // =========================================================================
+
     @PostMapping
-    public ResponseEntity<BaseResponse<ApplicationDto>> createApplication(@Valid @RequestBody ApplicationCreateDto createDto) {
-        ApplicationDto mockApplication = ApplicationDto.builder()
-                .id(1L)
-                .beneficiary(BeneficiaryDto.builder()
-                        .id(createDto.getBeneficiaryId())
-                        .uniqueIdNumber("123456789012")
-                        .phoneNumber("9876543210")
-                        .address("123, Green Valley, New Delhi")
-                        .bankAccountNumber("918273645281")
-                        .bankIfscCode("SBIN0000123")
-                        .annualIncome(new BigDecimal("150000.00"))
-                        .eligibilityStatus("VERIFIED")
-                        .gender("MALE")
-                        .category("OBC")
-                        .build())
-                .scheme(SchemeDto.builder()
-                        .id(createDto.getSchemeId())
-                        .name("Pradhan Mantri Fasal Bima Yojana")
-                        .code("PMFBY-2026")
-                        .description("Crop insurance scheme for farmers to provide financial support.")
-                        .budgetAllocation(new BigDecimal("50000000.00"))
-                        .remainingBudget(new BigDecimal("42000000.00"))
-                        .startDate(LocalDate.of(2026, 6, 1))
-                        .endDate(LocalDate.of(2027, 6, 1))
-                        .active(true)
-                        .status("ACTIVE")
-                        .build())
-                .applicationNumber("APP-2026-0001")
-                .requestedAmount(createDto.getRequestedAmount())
-                .approvedAmount(null)
-                .workflowStatus("SUBMITTED")
-                .currentStage("INITIATION")
-                .eligibilityScore(75)
-                .assignedOfficer(UserDto.builder()
-                        .id(50L)
-                        .username("field_officer_1")
-                        .email("officer1@gov.in")
-                        .firstName("Raj")
-                        .lastName("Sharma")
-                        .active(true)
-                        .roles(Collections.singleton("ROLE_FIELD_OFFICER"))
-                        .build())
-                .submittedDate(LocalDateTime.now())
-                .verifiedDate(null)
-                .approvedDate(null)
-                .lastModifiedDate(LocalDateTime.now())
-                .remarks("Initial submission")
-                .priority(createDto.getPriority())
-                .isFlagged(false)
-                .reVerificationRequested(false)
-                .rejectionReason(null)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
+    @Operation(
+            summary = "Submit a new subsidy application",
+            description = """
+                    Submits a new subsidy application on behalf of a registered beneficiary.
 
+                    **Validations performed (in order):**
+                    1. Beneficiary with the given `beneficiaryId` must exist in the system.
+                    2. Scheme with the given `schemeId` must exist in the system.
+                    3. Scheme must have `status = ACTIVE` and `active = true`.
+                    4. The same beneficiary must not have already applied for the same scheme (no duplicates).
+
+                    **Auto-generated fields:**
+                    - `applicationNumber` — format: `APP-YYYY-NNNNNN` (e.g. `APP-2026-000001`)
+                    - `workflowStatus`    — always initialised to `SUBMITTED`
+                    - `currentStage`      — always initialised to `INITIATION`
+                    - `submittedDate`     — set to the current server timestamp
+
+                    **Eligibility scoring is NOT performed at submission time.**
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Application submitted successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = BaseResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Success – 201 Created",
+                                    summary = "Application submitted and persisted",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "message": "Subsidy application submitted successfully",
+                                              "data": {
+                                                "id": 1,
+                                                "beneficiary": {
+                                                  "id": 5,
+                                                  "uniqueIdNumber": "123456789012",
+                                                  "phoneNumber": "9876543210",
+                                                  "address": "12, Green Park, New Delhi",
+                                                  "bankAccountNumber": "918273645281",
+                                                  "bankIfscCode": "SBIN0001234",
+                                                  "annualIncome": 150000.00,
+                                                  "eligibilityStatus": "VERIFIED",
+                                                  "gender": "MALE",
+                                                  "category": "OBC"
+                                                },
+                                                "scheme": {
+                                                  "id": 2,
+                                                  "name": "Pradhan Mantri Fasal Bima Yojana",
+                                                  "code": "PMFBY-2026",
+                                                  "description": "Crop insurance scheme for farmers.",
+                                                  "budgetAllocation": 50000000.00,
+                                                  "remainingBudget": 42000000.00,
+                                                  "startDate": "2026-06-01",
+                                                  "endDate": "2027-06-01",
+                                                  "active": true,
+                                                  "status": "ACTIVE"
+                                                },
+                                                "applicationNumber": "APP-2026-000001",
+                                                "requestedAmount": 25000.00,
+                                                "approvedAmount": null,
+                                                "workflowStatus": "SUBMITTED",
+                                                "currentStage": "INITIATION",
+                                                "eligibilityScore": null,
+                                                "assignedOfficer": null,
+                                                "submittedDate": "2026-07-09T18:41:52",
+                                                "verifiedDate": null,
+                                                "approvedDate": null,
+                                                "lastModifiedDate": "2026-07-09T18:41:52",
+                                                "remarks": null,
+                                                "priority": "MEDIUM",
+                                                "isFlagged": false,
+                                                "reVerificationRequested": false,
+                                                "rejectionReason": null,
+                                                "createdAt": "2026-07-09T18:41:52",
+                                                "updatedAt": "2026-07-09T18:41:52",
+                                                "createdBy": null,
+                                                "updatedBy": null
+                                              },
+                                              "timestamp": "2026-07-09T18:41:52"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Validation failed – missing or invalid request fields",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Validation Error – 400",
+                                    summary = "Required field missing",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Input validation failed",
+                                              "data": {
+                                                "timestamp": "2026-07-09T18:41:52",
+                                                "message": "Validation failed",
+                                                "details": "uri=/v1/applications",
+                                                "validationErrors": [
+                                                  "Beneficiary ID is required",
+                                                  "Requested amount must be greater than zero"
+                                                ]
+                                              },
+                                              "timestamp": "2026-07-09T18:41:52"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Beneficiary or Scheme not found",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Not Found – 404",
+                                    summary = "Beneficiary does not exist",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Resource not found",
+                                              "data": {
+                                                "timestamp": "2026-07-09T18:41:52",
+                                                "message": "Beneficiary not found with ID: 999",
+                                                "details": "uri=/v1/applications"
+                                              },
+                                              "timestamp": "2026-07-09T18:41:52"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Duplicate application – beneficiary already applied for this scheme",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Conflict – 409",
+                                    summary = "Duplicate application detected",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Duplicate resource conflict",
+                                              "data": {
+                                                "timestamp": "2026-07-09T18:41:52",
+                                                "message": "Beneficiary with ID 5 has already submitted an application for scheme 'Pradhan Mantri Fasal Bima Yojana'.",
+                                                "details": "uri=/v1/applications"
+                                              },
+                                              "timestamp": "2026-07-09T18:41:52"
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "422",
+                    description = "Scheme is not active – applications cannot be submitted",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Unprocessable Entity – 422",
+                                    summary = "Scheme status is INACTIVE",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Scheme is not active",
+                                              "data": {
+                                                "timestamp": "2026-07-09T18:41:52",
+                                                "message": "Scheme 'Old Farm Aid Programme' (ID: 3) is not currently active. Applications can only be submitted for schemes with status ACTIVE.",
+                                                "details": "uri=/v1/applications"
+                                              },
+                                              "timestamp": "2026-07-09T18:41:52"
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    public ResponseEntity<BaseResponse<ApplicationDto>> submitApplication(
+            @Valid @RequestBody ApplicationCreateDto createDto) {
+
+        ApplicationDto result = applicationService.submitApplication(createDto);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(BaseResponse.success(mockApplication, "Subsidy application submitted successfully"));
-    }
-
-    @GetMapping
-    public ResponseEntity<BaseResponse<List<ApplicationDto>>> getAllApplications() {
-        ApplicationDto mockApplication1 = ApplicationDto.builder()
-                .id(1L)
-                .beneficiary(BeneficiaryDto.builder()
-                        .id(1L)
-                        .uniqueIdNumber("123456789012")
-                        .phoneNumber("9876543210")
-                        .build())
-                .scheme(SchemeDto.builder()
-                        .id(1L)
-                        .name("Pradhan Mantri Fasal Bima Yojana")
-                        .code("PMFBY-2026")
-                        .build())
-                .applicationNumber("APP-2026-0001")
-                .requestedAmount(new BigDecimal("25000.00"))
-                .approvedAmount(new BigDecimal("25000.00"))
-                .workflowStatus("DISBURSED")
-                .currentStage("COMPLETED")
-                .eligibilityScore(90)
-                .assignedOfficer(UserDto.builder().id(50L).username("field_officer_1").build())
-                .submittedDate(LocalDateTime.now().minusDays(10))
-                .verifiedDate(LocalDateTime.now().minusDays(8))
-                .approvedDate(LocalDateTime.now().minusDays(7))
-                .lastModifiedDate(LocalDateTime.now().minusDays(5))
-                .remarks("Funds successfully transferred to beneficiary account")
-                .priority("HIGH")
-                .isFlagged(false)
-                .reVerificationRequested(false)
-                .rejectionReason(null)
-                .createdAt(LocalDateTime.now().minusDays(10))
-                .updatedAt(LocalDateTime.now().minusDays(5))
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
-
-        ApplicationDto mockApplication2 = ApplicationDto.builder()
-                .id(2L)
-                .beneficiary(BeneficiaryDto.builder()
-                        .id(2L)
-                        .uniqueIdNumber("987654321098")
-                        .phoneNumber("8765432109")
-                        .build())
-                .scheme(SchemeDto.builder()
-                        .id(2L)
-                        .name("National Fellowship for Higher Education")
-                        .code("NFHE-2026")
-                        .build())
-                .applicationNumber("APP-2026-0002")
-                .requestedAmount(new BigDecimal("120000.00"))
-                .approvedAmount(null)
-                .workflowStatus("UNDER_REVIEW")
-                .currentStage("FIELD_VERIFICATION")
-                .eligibilityScore(82)
-                .assignedOfficer(UserDto.builder().id(51L).username("field_officer_2").build())
-                .submittedDate(LocalDateTime.now().minusDays(2))
-                .verifiedDate(null)
-                .approvedDate(null)
-                .lastModifiedDate(LocalDateTime.now())
-                .remarks("Income certificates pending verification")
-                .priority("MEDIUM")
-                .isFlagged(false)
-                .reVerificationRequested(false)
-                .rejectionReason(null)
-                .createdAt(LocalDateTime.now().minusDays(2))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
-
-        List<ApplicationDto> mockApplications = Arrays.asList(mockApplication1, mockApplication2);
-        return ResponseEntity.ok(BaseResponse.success(mockApplications, "Applications audited successfully"));
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<ApplicationDto>> getApplicationById(@PathVariable Long id) {
-        ApplicationDto mockApplication = ApplicationDto.builder()
-                .id(id)
-                .beneficiary(BeneficiaryDto.builder()
-                        .id(10L)
-                        .uniqueIdNumber("111122223333")
-                        .phoneNumber("9000000000")
-                        .build())
-                .scheme(SchemeDto.builder()
-                        .id(20L)
-                        .name("Mock Grant Scheme")
-                        .code("MOCK-SCHEME")
-                        .build())
-                .applicationNumber("APP-2026-000" + id)
-                .requestedAmount(new BigDecimal("50000.00"))
-                .approvedAmount(null)
-                .workflowStatus("UNDER_REVIEW")
-                .currentStage("FIELD_VERIFICATION")
-                .eligibilityScore(65)
-                .assignedOfficer(UserDto.builder().id(50L).username("field_officer_1").build())
-                .submittedDate(LocalDateTime.now().minusDays(3))
-                .verifiedDate(null)
-                .approvedDate(null)
-                .lastModifiedDate(LocalDateTime.now())
-                .remarks("Awaiting official signature")
-                .priority("LOW")
-                .isFlagged(false)
-                .reVerificationRequested(false)
-                .rejectionReason(null)
-                .createdAt(LocalDateTime.now().minusDays(3))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
-
-        return ResponseEntity.ok(BaseResponse.success(mockApplication, "Application logs fetched successfully"));
-    }
-
-    @PutMapping("/{id}/status")
-    public ResponseEntity<BaseResponse<ApplicationDto>> updateApplicationStatus(
-            @PathVariable Long id,
-            @RequestParam String status,
-            @RequestParam(required = false) String remarks) {
-
-        String parsedStatus = status.toUpperCase();
-        ApplicationDto mockApplication = ApplicationDto.builder()
-                .id(id)
-                .beneficiary(BeneficiaryDto.builder()
-                        .id(10L)
-                        .uniqueIdNumber("111122223333")
-                        .build())
-                .scheme(SchemeDto.builder()
-                        .id(20L)
-                        .name("Mock Grant Scheme")
-                        .code("MOCK-SCHEME")
-                        .build())
-                .applicationNumber("APP-2026-000" + id)
-                .requestedAmount(new BigDecimal("50000.00"))
-                .approvedAmount(parsedStatus.equals("APPROVED") ? new BigDecimal("50000.00") : BigDecimal.ZERO)
-                .workflowStatus(parsedStatus)
-                .currentStage(parsedStatus.equals("APPROVED") ? "FINANCIAL_DISBURSEMENT" : "COMPLETED")
-                .eligibilityScore(88)
-                .assignedOfficer(UserDto.builder().id(50L).username("field_officer_1").build())
-                .submittedDate(LocalDateTime.now().minusDays(3))
-                .verifiedDate(LocalDateTime.now().minusDays(1))
-                .approvedDate(parsedStatus.equals("APPROVED") ? LocalDateTime.now() : null)
-                .lastModifiedDate(LocalDateTime.now())
-                .remarks(remarks != null ? remarks : "Status updated by officer")
-                .priority("HIGH")
-                .isFlagged(false)
-                .reVerificationRequested(false)
-                .rejectionReason(parsedStatus.equals("REJECTED") ? "Failed field audit" : null)
-                .createdAt(LocalDateTime.now().minusDays(3))
-                .updatedAt(LocalDateTime.now())
-                .createdBy("SYSTEM")
-                .updatedBy("SYSTEM")
-                .build();
-
-        return ResponseEntity.ok(BaseResponse.success(mockApplication, "Application status successfully updated to " + status));
+                .body(BaseResponse.success(result, "Subsidy application submitted successfully"));
     }
 }

@@ -32,6 +32,7 @@ public class BeneficiaryMapper implements GenericMapper<Beneficiary, Beneficiary
                 .bankAccountNumber(entity.getBankAccountNumber())
                 .bankIfscCode(entity.getBankIfscCode())
                 .annualIncome(entity.getAnnualIncome())
+                .dateOfBirth(entity.getDateOfBirth())
                 .eligibilityStatus(entity.getEligibilityStatus() == null ? null : entity.getEligibilityStatus().name())
                 .gender(entity.getGender() == null ? null : entity.getGender().name())
                 .category(entity.getCategory() == null ? null : entity.getCategory().name())
@@ -57,6 +58,7 @@ public class BeneficiaryMapper implements GenericMapper<Beneficiary, Beneficiary
                 .bankAccountNumber(dto.getBankAccountNumber())
                 .bankIfscCode(dto.getBankIfscCode())
                 .annualIncome(dto.getAnnualIncome())
+                .dateOfBirth(dto.getDateOfBirth())
                 .eligibilityStatus(dto.getEligibilityStatus() == null ? null : 
                         VerificationStatus.valueOf(dto.getEligibilityStatus()))
                 .gender(dto.getGender() == null ? null : Gender.valueOf(dto.getGender()))
@@ -82,6 +84,7 @@ public class BeneficiaryMapper implements GenericMapper<Beneficiary, Beneficiary
                 .bankAccountNumber(createDto.getBankAccountNumber())
                 .bankIfscCode(createDto.getBankIfscCode())
                 .annualIncome(createDto.getAnnualIncome())
+                .dateOfBirth(createDto.getDateOfBirth())
                 .eligibilityStatus(createDto.getEligibilityStatus() == null ? null : 
                         VerificationStatus.valueOf(createDto.getEligibilityStatus()))
                 .gender(createDto.getGender() == null ? null : Gender.valueOf(createDto.getGender()))

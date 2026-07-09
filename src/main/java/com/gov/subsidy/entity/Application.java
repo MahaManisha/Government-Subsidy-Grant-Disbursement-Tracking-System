@@ -1,6 +1,7 @@
 package com.gov.subsidy.entity;
 
 import com.gov.subsidy.enums.ApplicationStatus;
+import com.gov.subsidy.enums.EligibilityResult;
 import com.gov.subsidy.enums.PriorityLevel;
 import com.gov.subsidy.enums.WorkflowStage;
 import jakarta.persistence.*;
@@ -71,6 +72,11 @@ public class Application extends BaseEntity {
     @Max(value = 100, message = "Eligibility score cannot exceed 100")
     @Column(name = "eligibility_score")
     private Integer eligibilityScore;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "eligibility_result", nullable = false, length = 20)
+    private EligibilityResult eligibilityResult = EligibilityResult.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_officer_id", foreignKey = @ForeignKey(name = "fk_application_assigned_officer"))
