@@ -38,3 +38,7 @@ $RECYCLE.BIN/
 ### Crash dumps ###
 *.dmp
 *.dump
+
+### Secrets & Credentials — DO NOT COMMIT ###
+src/main/resources/application.properties
+src/main/resources/application-*.properties
