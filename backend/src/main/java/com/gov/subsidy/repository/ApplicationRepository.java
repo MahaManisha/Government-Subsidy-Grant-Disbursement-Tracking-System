@@ -47,4 +47,17 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
      */
     @Query("SELECT COUNT(a) FROM Application a WHERE a.applicationNumber LIKE :yearPrefix%")
     long countByApplicationNumberStartingWith(@Param("yearPrefix") String yearPrefix);
+
+    long countByWorkflowStatusIn(java.util.List<ApplicationStatus> statuses);
+
+    long countByWorkflowStatus(ApplicationStatus status);
+
+    @Query("SELECT a.scheme.name, COUNT(a) FROM Application a GROUP BY a.scheme.name")
+    List<Object[]> countApplicationsByScheme();
+
+    @Query("SELECT AVG(a.eligibilityScore) FROM Application a")
+    Double averageEligibilityScore();
+
+    @Query("SELECT a.scheme.name, COUNT(a) FROM Application a GROUP BY a.scheme.name ORDER BY COUNT(a) DESC")
+    List<Object[]> findMostPopularScheme();
 }

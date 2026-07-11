@@ -1,0 +1,559 @@
+{
+  "info": {
+    "_postman_id": "cf8a156e-8b9a-4fd2-a720-302efd02be6f",
+    "name": "Subsidy System Complete Milestone 3 Collection",
+    "description": "Unified Postman collection containing all REST endpoints implemented in Milestone 3, covering: Disbursement Management, Compliance Verification, Compliance Reminders, Fund Utilization Tracking, and Regional Analytics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Disbursement Management",
+      "item": [
+        {
+          "name": "Create Disbursement Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicationId\": 1,\n  \"milestones\": [\n    {\n      \"milestoneNumber\": 1,\n      \"percentage\": 40.00,\n      \"amount\": 40000.00\n    },\n    {\n      \"milestoneNumber\": 2,\n      \"percentage\": 30.00,\n      \"amount\": 30000.00\n    },\n    {\n      \"milestoneNumber\": 3,\n      \"percentage\": 30.00,\n      \"amount\": 30000.00\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/v1/disbursement-plans",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "disbursement-plans"
+              ]
+            },
+            "description": "Creates a multi-milestone disbursement plan for an approved application. Validates that the sum of percentages is 100% and amounts match approvedAmount."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Disbursement Plan by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/disbursement-plans/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "disbursement-plans",
+                "1"
+              ]
+            },
+            "description": "Retrieves details of a specific disbursement plan."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Disbursement Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/disbursement-plans",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "disbursement-plans"
+              ]
+            },
+            "description": "Retrieves a list of all disbursement plans in the system."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Disbursement Plan",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"milestones\": [\n    {\n      \"milestoneNumber\": 1,\n      \"percentage\": 50.00,\n      \"amount\": 50000.00\n    },\n    {\n      \"milestoneNumber\": 2,\n      \"percentage\": 50.00,\n      \"amount\": 50000.00\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/v1/disbursement-plans/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "disbursement-plans",
+                "1"
+              ]
+            },
+            "description": "Updates/reschedules milestones for a non-disbursed plan."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Disbursement Plan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/disbursement-plans/1/cancel",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "disbursement-plans",
+                "1",
+                "cancel"
+              ]
+            },
+            "description": "Cancels a disbursement plan, changing status to CANCELLED."
+          },
+          "response": []
+        },
+        {
+          "name": "Release Milestone Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/disbursement-plans/1/milestones/2/release?financeOfficerId=1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "disbursement-plans",
+                "1",
+                "milestones",
+                "2",
+                "release"
+              ],
+              "query": [
+                {
+                  "key": "financeOfficerId",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Releases milestone funds. Restricts subsequent milestones (Milestone 2+) until the previous milestone (Milestone 1) has an approved COMPLIANT status record."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Compliance Verification",
+      "item": [
+        {
+          "name": "Create Compliance Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicationId\": 1,\n  \"disbursementId\": 1,\n  \"milestoneNumber\": 1,\n  \"uploadedProofMetadata\": \"https://supabase.co/storage/v1/object/public/proofs/milestone-1-proof.pdf\",\n  \"inspectionDate\": \"2026-07-11T12:00:00\",\n  \"officerRemarks\": \"Initial verification proof uploaded. Site check scheduled.\",\n  \"nextDueDate\": \"2026-08-11T12:00:00\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances"
+              ]
+            },
+            "description": "Creates compliance records linked to Application, Beneficiary, and Disbursement."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Compliance Record by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "1"
+              ]
+            },
+            "description": "Fetches a compliance check details by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Compliances by Application ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/application/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "application",
+                "1"
+              ]
+            },
+            "description": "Retrieves compliance list by Application ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Compliance Record",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"officerRemarks\": \"Site check completed. Invoices verified.\",\n  \"inspectionDate\": \"2026-07-12T10:00:00\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "1"
+              ]
+            },
+            "description": "Updates non-verified compliance record details."
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Compliance Check",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/1/approve",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "1",
+                "approve"
+              ]
+            },
+            "description": "Approves compliance check. If this is the final milestone in the plan, automatically completes application pipeline, updating application status to DISBURSED. Otherwise, advances application status to READY_FOR_DISBURSEMENT."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Compliance Check",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/1/reject?reason=Missing proof of purchase receipts",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "1",
+                "reject"
+              ],
+              "query": [
+                {
+                  "key": "reason",
+                  "value": "Missing proof of purchase receipts"
+                }
+              ]
+            },
+            "description": "Rejects compliance check, marking status to REJECTED."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Compliance Reminders",
+      "item": [
+        {
+          "name": "Trigger Compliance Reminder Scan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/reminders/trigger",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "reminders",
+                "trigger"
+              ]
+            },
+            "description": "Manually triggers the compliance due/overdue scan (normally run on a 15-minute cron scheduler)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Reminder History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/compliances/reminders/history/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "compliances",
+                "reminders",
+                "history",
+                "1"
+              ]
+            },
+            "description": "Retrieves the history of all simulated SMS/Email/Dashboard notifications sent to the citizen for a specific compliance check."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fund Utilization Tracking",
+      "item": [
+        {
+          "name": "Submit Fund Utilization",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicationId\": 1,\n  \"disbursementId\": 1,\n  \"amountUtilized\": 30000.00,\n  \"purpose\": \"Procured solar panels and micro-inverter equipment\",\n  \"supportingDocsMetadata\": \"https://supabase.co/storage/v1/object/public/proofs/solar-purchase-invoice.pdf\",\n  \"remarks\": \"Beneficiary submission for milestone 1 funds utilization\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/v1/fund-utilizations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "fund-utilizations"
+              ]
+            },
+            "description": "Submits details on how released funds were spent. Validates that the amount utilized does not exceed the total released funds."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Utilization Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/fund-utilizations/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "fund-utilizations",
+                "1"
+              ]
+            },
+            "description": "Retrieves the full fund utilization record details by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Utilization (Approve/Reject)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Officer inspected invoices and confirmed hardware installation on-site\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/v1/fund-utilizations/1/verify?status=VERIFIED",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "fund-utilizations",
+                "1",
+                "verify"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "VERIFIED"
+                }
+              ]
+            },
+            "description": "Officer verifies the utilization submission, updating verification status to VERIFIED or REJECTED with remarks."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Application Utilization Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/fund-utilizations/application/1/summary",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "fund-utilizations",
+                "application",
+                "1",
+                "summary"
+              ]
+            },
+            "description": "Returns the utilization summary for the application, calculating total released, total verified utilized, remaining unspent, and utilization percentage split."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Regional Analytics",
+      "item": [
+        {
+          "name": "Get Regional Analytics Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/api/v1/analytics/report",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "v1",
+                "analytics",
+                "report"
+              ]
+            },
+            "description": "Fetches regional aggregates including funds released by district and state, applications by scheme, approval rates, average eligibility scores, and highest utilization indices."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

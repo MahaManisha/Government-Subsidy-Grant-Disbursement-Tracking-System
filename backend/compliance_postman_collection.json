@@ -1,0 +1,208 @@
+{
+  "info": {
+    "_postman_id": "7f8a156e-8b9a-4fd2-a720-302efd02be2c",
+    "name": "Subsidy Compliance Tracking Module",
+    "description": "Postman collection to manage compliance verification records, approvals, rejections, and milestone releases under the Government Subsidy Tracking System.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Compliance Record",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"applicationId\": 1,\n  \"disbursementId\": 1,\n  \"milestoneNumber\": 1,\n  \"uploadedProofMetadata\": \"https://supabase.co/storage/v1/object/public/proofs/milestone-1-proof.pdf\",\n  \"inspectionDate\": \"2026-07-11T12:00:00\",\n  \"officerRemarks\": \"Initial verification proof uploaded. Site check scheduled.\",\n  \"nextDueDate\": \"2026-08-11T12:00:00\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances"
+          ]
+        },
+        "description": "Creates a new compliance record linked to the application, beneficiary, and disbursement. The status is initialized to UNDER_REVIEW since proof is uploaded, or PENDING if not."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Compliance Record by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "1"
+          ]
+        },
+        "description": "Retrieves the full compliance record details by its unique identifier."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Compliances by Application ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/application/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "application",
+            "1"
+          ]
+        },
+        "description": "Retrieves all compliance checks submitted for a specific application."
+      },
+      "response": []
+    },
+    {
+      "name": "Update Compliance Record",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"officerRemarks\": \"Site check completed. Solid progress verified.\",\n  \"inspectionDate\": \"2026-07-12T10:00:00\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "1"
+          ]
+        },
+        "description": "Updates remarks or inspection details of a pending or under review compliance record."
+      },
+      "response": []
+    },
+    {
+      "name": "Approve Compliance",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/1/approve",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "1",
+            "approve"
+          ]
+        },
+        "description": "Approves the compliance record, updating the status to COMPLIANT. This unblocks the next milestone release. If this is the final milestone in the plan, automatically completes the application pipeline, updating application status to DISBURSED."
+      },
+      "response": []
+    },
+    {
+      "name": "Reject Compliance",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/1/reject?reason=Missing proof of purchase receipts",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "1",
+            "reject"
+          ],
+          "query": [
+            {
+              "key": "reason",
+              "value": "Missing proof of purchase receipts"
+            }
+          ]
+        },
+        "description": "Rejects the compliance record, marking it REJECTED and setting the rejection remarks. Rejection leaves a block on subsequent milestone releases."
+      },
+      "response": []
+    },
+    {
+      "name": "Release Milestone Payment",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans/1/milestones/2/release?financeOfficerId=1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans",
+            "1",
+            "milestones",
+            "2",
+            "release"
+          ],
+          "query": [
+            {
+              "key": "financeOfficerId",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "Triggers the release of a scheduled milestone. Milestone 1 requires no compliance check. Milestone 2 and onwards strictly validate that a COMPLIANT record exists for the previous milestone (Milestone 1). If valid, marks milestone paymentStatus as SUCCESS, generates a legacy Disbursement transaction record, and updates application status progress."
+      },
+      "response": []
+    }
+  ]
+}

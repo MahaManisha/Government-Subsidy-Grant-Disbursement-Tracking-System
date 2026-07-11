@@ -1,0 +1,168 @@
+{
+  "info": {
+    "_postman_id": "8f8a156e-8b9a-4fd2-a720-302efd02be1b",
+    "name": "Subsidy Disbursement Planning & Scheduling",
+    "description": "Postman collection for managing and planning disbursement milestones for approved subsidy applications.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Disbursement Plan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"applicationId\": 1,\n  \"remarks\": \"Disbursement plan for Solar Subsidy installation\",\n  \"milestones\": [\n    { \"percentage\": 40.00 },\n    { \"percentage\": 30.00 },\n    { \"percentage\": 30.00 }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans"
+          ]
+        },
+        "description": "Creates a new disbursement plan for an approved application. Generates milestone numbers, schedule dates (spaced by 30 days starting from today), payment status PENDING, and dynamic remaining balances winding down to 0."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Disbursement Plan by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans",
+            "1"
+          ]
+        },
+        "description": "Retrieves the disbursement plan and all of its scheduled milestones by the plan ID."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Disbursement Plan by Application ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans/application/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans",
+            "application",
+            "1"
+          ]
+        },
+        "description": "Retrieves the disbursement plan and scheduled milestones associated with a specific application."
+      },
+      "response": []
+    },
+    {
+      "name": "Update Disbursement Plan",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"remarks\": \"Updated to 50/50 two-phase disbursement\",\n  \"milestones\": [\n    { \"percentage\": 50.00 },\n    { \"percentage\": 50.00 }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans",
+            "1"
+          ]
+        },
+        "description": "Updates an existing active plan's remarks and regenerates/recalculates the milestone percentage breakdown."
+      },
+      "response": []
+    },
+    {
+      "name": "Cancel Disbursement Plan",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans/1/cancel",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans",
+            "1",
+            "cancel"
+          ]
+        },
+        "description": "Cancels a disbursement plan and moves its pending milestones to FAILED payment status."
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Disbursement Plans",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/disbursement-plans",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "disbursement-plans"
+          ]
+        },
+        "description": "Gets all disbursement plans configured in the tracking system."
+      },
+      "response": []
+    }
+  ]
+}

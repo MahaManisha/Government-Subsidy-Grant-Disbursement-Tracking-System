@@ -1,0 +1,130 @@
+{
+  "info": {
+    "_postman_id": "0f8a156e-8b9a-4fd2-a720-302efd02be4e",
+    "name": "Subsidy Fund Utilization Tracking Module",
+    "description": "Postman collection to submit and verify fund utilization details, verify expenditures, and query utilization summaries for beneficiaries and officers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Submit Fund Utilization",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"applicationId\": 1,\n  \"disbursementId\": 1,\n  \"amountUtilized\": 30000.00,\n  \"purpose\": \"Procured solar panels and micro-inverter equipment\",\n  \"supportingDocsMetadata\": \"https://supabase.co/storage/v1/object/public/proofs/solar-purchase-invoice.pdf\",\n  \"remarks\": \"Beneficiary submission for milestone 1 funds utilization\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/fund-utilizations",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "fund-utilizations"
+          ]
+        },
+        "description": "Submits details on how released funds were spent. Validates that the amount utilized does not exceed the total released funds."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Utilization Details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/fund-utilizations/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "fund-utilizations",
+            "1"
+          ]
+        },
+        "description": "Retrieves the full fund utilization record details by ID."
+      },
+      "response": []
+    },
+    {
+      "name": "Verify Utilization (Approve/Reject)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"remarks\": \"Officer inspected invoices and confirmed hardware installation on-site\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/fund-utilizations/1/verify?status=VERIFIED",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "fund-utilizations",
+            "1",
+            "verify"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "VERIFIED"
+            }
+          ]
+        },
+        "description": "Officer verifies the utilization submission, updating verification status to VERIFIED or REJECTED with remarks."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Application Utilization Summary",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/fund-utilizations/application/1/summary",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "fund-utilizations",
+            "application",
+            "1",
+            "summary"
+          ]
+        },
+        "description": "Returns the utilization summary for the application, calculating total released, total verified utilized, remaining unspent, and utilization percentage split."
+      },
+      "response": []
+    }
+  ]
+}

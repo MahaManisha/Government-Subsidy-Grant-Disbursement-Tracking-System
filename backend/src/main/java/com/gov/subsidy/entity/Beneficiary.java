@@ -46,6 +46,14 @@ public class Beneficiary extends BaseEntity {
     @Column(name = "address", nullable = false, length = 500)
     private String address;
 
+    @Size(max = 100, message = "District must not exceed 100 characters")
+    @Column(name = "district", length = 100)
+    private String district;
+
+    @Size(max = 100, message = "State must not exceed 100 characters")
+    @Column(name = "state", length = 100)
+    private String state;
+
     @NotBlank(message = "Bank account number is required")
     @Size(min = 9, max = 20, message = "Bank account number must be between 9 and 20 digits")
     @Column(name = "bank_account_number", nullable = false, length = 20)

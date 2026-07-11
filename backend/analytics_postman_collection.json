@@ -1,0 +1,33 @@
+{
+  "info": {
+    "_postman_id": "bf8a156e-8b9a-4fd2-a720-302efd02be5f",
+    "name": "Subsidy Regional Analytics & Reporting Module",
+    "description": "Postman collection to fetch dashboard-friendly regional reporting aggregates from the Government Subsidy Tracking System.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Regional Analytics Report",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/analytics/report",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "analytics",
+            "report"
+          ]
+        },
+        "description": "Fetches regional aggregates including funds released by district and state, applications by scheme, approval rates, average eligibility scores, and highest utilization indices."
+      },
+      "response": []
+    }
+  ]
+}

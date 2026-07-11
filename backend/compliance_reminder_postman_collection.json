@@ -1,0 +1,59 @@
+{
+  "info": {
+    "_postman_id": "9f8a156e-8b9a-4fd2-a720-302efd02be3d",
+    "name": "Subsidy Compliance Reminder & Automation Module",
+    "description": "Postman collection to manage scheduled compliance scans, automatic transitions to NON_COMPLIANT, escalations, and reminder histories.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Trigger Compliance Reminder Scan",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/reminders/trigger",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "reminders",
+            "trigger"
+          ]
+        },
+        "description": "Triggers the automatic scan immediately (normally run on a 15-minute cron schedule). Identifies due-soon, overdue, and severely overdue records, updating statuses to NON_COMPLIANT, flagging applications, logging to Audit Logs, and writing to reminder histories."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Reminder History",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/compliances/reminders/history/1",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "compliances",
+            "reminders",
+            "history",
+            "1"
+          ]
+        },
+        "description": "Retrieves the history of all simulated SMS/Email/Dashboard notifications sent to the citizen for a specific compliance check."
+      },
+      "response": []
+    }
+  ]
+}

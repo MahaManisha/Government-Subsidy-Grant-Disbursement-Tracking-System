@@ -1,7 +1,7 @@
 package com.gov.subsidy.entity;
 
+import com.gov.subsidy.enums.ComplianceStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -10,7 +10,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "compliances", indexes = {
-        @Index(name = "idx_compliances_application_id", columnList = "application_id")
+        @Index(name = "idx_compliances_application_id", columnList = "application_id"),
+        @Index(name = "idx_compliances_disbursement_id", columnList = "disbursement_id"),
+        @Index(name = "idx_compliances_beneficiary_id", columnList = "beneficiary_id"),
+        @Index(name = "idx_compliances_status", columnList = "status")
 })
 @Getter
 @Setter
@@ -28,19 +31,34 @@ public class Compliance extends BaseEntity {
     @NotNull(message = "Application association is required")
     private Application application;
 
-    @Column(name = "is_compliant", nullable = false)
-    private boolean isCompliant;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "disbursement_id", foreignKey = @ForeignKey(name = "fk_compliance_disbursement"))
+    private Disbursement disbursement;
 
-    @NotBlank(message = "Checks run detail is required")
-    @Size(max = 255, message = "Checks run detail must not exceed 255 characters")
-    @Column(name = "checks_run", nullable = false, length = 255)
-    private String checksRun;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "beneficiary_id", nullable = false, foreignKey = @ForeignKey(name = "fk_compliance_beneficiary"))
+    @NotNull(message = "Beneficiary association is required")
+    private Beneficiary beneficiary;
 
-    @Size(max = 500, message = "Remarks must not exceed 500 characters")
-    @Column(name = "remarks", length = 500)
-    private String remarks;
+    @Column(name = "milestone_number")
+    private Integer milestoneNumber;
 
-    @NotNull(message = "Check date is required")
-    @Column(name = "check_date", nullable = false)
-    private LocalDateTime checkDate;
+    @Size(max = 255, message = "Proof metadata must not exceed 255 characters")
+    @Column(name = "uploaded_proof_metadata", length = 255)
+    private String uploadedProofMetadata;
+
+    @Column(name = "inspection_date")
+    private LocalDateTime inspectionDate;
+
+    @Size(max = 500, message = "Officer remarks must not exceed 500 characters")
+    @Column(name = "officer_remarks", length = 500)
+    private String officerRemarks;
+
+    @NotNull(message = "Compliance status is required")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private ComplianceStatus status;
+
+    @Column(name = "next_due_date")
+    private LocalDateTime nextDueDate;
 }

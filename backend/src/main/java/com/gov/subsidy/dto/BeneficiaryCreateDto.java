@@ -56,6 +56,12 @@ public class BeneficiaryCreateDto {
     )
     private String address;
 
+    @Schema(description = "District of the beneficiary", example = "Central Delhi")
+    private String district;
+
+    @Schema(description = "State of the beneficiary", example = "Delhi")
+    private String state;
+
     @NotBlank(message = "Bank account number is required")
     @Size(min = 9, max = 20, message = "Bank account number must be between 9 and 20 digits")
     @Schema(

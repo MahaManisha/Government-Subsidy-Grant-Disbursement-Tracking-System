@@ -20,6 +20,8 @@ public class BeneficiaryDto {
     private String uniqueIdNumber;
     private String phoneNumber;
     private String address;
+    private String district;
+    private String state;
     private String bankAccountNumber;
     private String bankIfscCode;
     private BigDecimal annualIncome;
