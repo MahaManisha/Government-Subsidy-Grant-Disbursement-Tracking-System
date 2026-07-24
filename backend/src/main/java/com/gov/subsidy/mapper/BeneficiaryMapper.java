@@ -38,6 +38,7 @@ public class BeneficiaryMapper implements GenericMapper<Beneficiary, Beneficiary
                 .eligibilityStatus(entity.getEligibilityStatus() == null ? null : entity.getEligibilityStatus().name())
                 .gender(entity.getGender() == null ? null : entity.getGender().name())
                 .category(entity.getCategory() == null ? null : entity.getCategory().name())
+                .occupation(entity.getOccupation())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .createdBy(entity.getCreatedBy())
@@ -67,6 +68,7 @@ public class BeneficiaryMapper implements GenericMapper<Beneficiary, Beneficiary
                         VerificationStatus.valueOf(dto.getEligibilityStatus()))
                 .gender(dto.getGender() == null ? null : Gender.valueOf(dto.getGender()))
                 .category(dto.getCategory() == null ? null : BeneficiaryCategory.valueOf(dto.getCategory()))
+                .occupation(dto.getOccupation())
                 .build();
 
         beneficiary.setCreatedAt(dto.getCreatedAt());
@@ -95,6 +97,7 @@ public class BeneficiaryMapper implements GenericMapper<Beneficiary, Beneficiary
                         VerificationStatus.valueOf(createDto.getEligibilityStatus()))
                 .gender(createDto.getGender() == null ? null : Gender.valueOf(createDto.getGender()))
                 .category(createDto.getCategory() == null ? null : BeneficiaryCategory.valueOf(createDto.getCategory()))
+                .occupation(createDto.getOccupation())
                 .build();
     }
 }

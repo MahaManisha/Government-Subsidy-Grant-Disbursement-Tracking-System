@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -152,6 +153,7 @@ public class RoutingController {
             @ApiResponse(responseCode = "400", description = "Application is not in a routable state"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<RoutingResponseDto>> routeApplication(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {
@@ -206,6 +208,7 @@ public class RoutingController {
             @ApiResponse(responseCode = "400", description = "Already at highest level or invalid state"),
             @ApiResponse(responseCode = "404", description = "Application or officer not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<RoutingResponseDto>> escalate(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -256,6 +259,7 @@ public class RoutingController {
             ),
             @ApiResponse(responseCode = "404", description = "Application or target officer not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER')")
     public ResponseEntity<BaseResponse<RoutingResponseDto>> reassign(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -310,6 +314,7 @@ public class RoutingController {
             ),
             @ApiResponse(responseCode = "404", description = "Application or officer not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<RoutingResponseDto>> flagSuspicious(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -386,6 +391,7 @@ public class RoutingController {
             @ApiResponse(responseCode = "400", description = "Missing required remarks"),
             @ApiResponse(responseCode = "404", description = "Application or officer not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<RoutingResponseDto>> rejectRouting(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -410,6 +416,7 @@ public class RoutingController {
             @ApiResponse(responseCode = "200", description = "Routing history retrieved successfully"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<List<RoutingRecordDto>>> getRoutingHistory(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {

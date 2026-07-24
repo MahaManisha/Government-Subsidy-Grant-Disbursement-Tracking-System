@@ -10,8 +10,11 @@ package com.gov.subsidy.enums;
  */
 public enum WorkflowStage {
     INITIATION,
+    FIELD_VERIFICATION_PENDING,
     FIELD_VERIFICATION,
+    DISTRICT_REVIEW_PENDING,
     DISTRICT_REVIEW,
+    FINANCE_REVIEW_PENDING,
     FINANCE_REVIEW,
     COMPLETED,
     /** @deprecated kept for backward compatibility */

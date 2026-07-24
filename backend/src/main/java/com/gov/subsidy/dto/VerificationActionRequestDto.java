@@ -22,12 +22,10 @@ import lombok.NoArgsConstructor;
 @Schema(description = "Request body for performing a verification workflow action")
 public class VerificationActionRequestDto {
 
-    @NotNull(message = "Officer ID is required")
     @Schema(
             description = "Primary key of the officer performing the action. " +
-                    "Must correspond to a user with appropriate role for the current workflow stage.",
-            example = "10",
-            requiredMode = Schema.RequiredMode.REQUIRED
+                    "Optional if the action is performed by the currently authenticated officer.",
+            example = "10"
     )
     private Long officerId;
 

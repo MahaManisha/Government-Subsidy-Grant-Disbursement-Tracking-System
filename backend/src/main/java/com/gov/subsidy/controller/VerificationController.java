@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PostAuthorize;
 
 import java.util.List;
 
@@ -107,6 +109,7 @@ public class VerificationController {
             @ApiResponse(responseCode = "404", description = "Application or field officer user not found"),
             @ApiResponse(responseCode = "409", description = "Verification record already exists for this application")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<VerificationDto>> assignFieldOfficer(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -190,6 +193,7 @@ public class VerificationController {
             ),
             @ApiResponse(responseCode = "400", description = "Invalid stage or missing required remarks/rejectionReason")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER')")
     public ResponseEntity<BaseResponse<VerificationDto>> performFieldVerification(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -225,6 +229,7 @@ public class VerificationController {
             @ApiResponse(responseCode = "200", description = "District review action applied successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid stage or missing required fields")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER')")
     public ResponseEntity<BaseResponse<VerificationDto>> performDistrictReview(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -287,6 +292,7 @@ public class VerificationController {
             ),
             @ApiResponse(responseCode = "400", description = "Invalid stage or missing required fields")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<VerificationDto>> performFinanceReview(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -310,6 +316,7 @@ public class VerificationController {
             @ApiResponse(responseCode = "200", description = "Verification state retrieved successfully"),
             @ApiResponse(responseCode = "404", description = "Application not found or no verification record exists yet")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER', 'FINANCE_OFFICER') or (hasRole('FIELD_OFFICER') and principal != null && @verificationServiceImpl.getVerificationByApplicationId(#applicationId).fieldOfficer != null && @verificationServiceImpl.getVerificationByApplicationId(#applicationId).fieldOfficer.username == principal.username)")
     public ResponseEntity<BaseResponse<VerificationDto>> getVerification(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {
@@ -332,6 +339,7 @@ public class VerificationController {
             @ApiResponse(responseCode = "200", description = "Audit history retrieved successfully"),
             @ApiResponse(responseCode = "404", description = "Application not found or no verification record exists")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER', 'FINANCE_OFFICER') or (hasRole('FIELD_OFFICER') and principal != null && @verificationServiceImpl.getVerificationByApplicationId(#applicationId).fieldOfficer != null && @verificationServiceImpl.getVerificationByApplicationId(#applicationId).fieldOfficer.username == principal.username)")
     public ResponseEntity<BaseResponse<List<VerificationHistoryDto>>> getVerificationHistory(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {

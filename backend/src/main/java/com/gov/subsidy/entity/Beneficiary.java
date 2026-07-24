@@ -89,6 +89,10 @@ public class Beneficiary extends BaseEntity {
     @Column(name = "category", nullable = false, length = 15)
     private BeneficiaryCategory category;
 
+    @Size(max = 100, message = "Occupation must not exceed 100 characters")
+    @Column(name = "occupation", length = 100)
+    private String occupation;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

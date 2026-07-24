@@ -88,4 +88,15 @@ public class SchemeCreateDto {
             allowableValues = {"ACTIVE", "INACTIVE", "DRAFT", "ARCHIVED"}
     )
     private String status;
+
+    private Integer minAge;
+    private Integer maxAge;
+    private BigDecimal maxAnnualIncome;
+    private String gender;
+    private String category;
+    private String occupation;
+    private String state;
+    private String district;
+    private String requiredDocuments;
+    private BigDecimal maxGrantAmount;
 }

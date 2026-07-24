@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * REST controller exposing the Application Submission endpoint.
@@ -237,11 +238,20 @@ public class ApplicationController {
                     )
             )
     })
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('BENEFICIARY') and principal != null && @beneficiaryServiceImpl.getBeneficiaryById(#createDto.beneficiaryId).user != null && @beneficiaryServiceImpl.getBeneficiaryById(#createDto.beneficiaryId).user.username == principal.username)")
     public ResponseEntity<BaseResponse<ApplicationDto>> submitApplication(
             @Valid @RequestBody ApplicationCreateDto createDto) {
 
         ApplicationDto result = applicationService.submitApplication(createDto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(BaseResponse.success(result, "Subsidy application submitted successfully"));
+    }
+
+    @GetMapping
+    @Operation(summary = "Get all subsidy applications", description = "Retrieves all subsidy application records.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER', 'BENEFICIARY')")
+    public ResponseEntity<BaseResponse<java.util.List<ApplicationDto>>> getAllApplications() {
+        java.util.List<ApplicationDto> result = applicationService.getAllApplications();
+        return ResponseEntity.ok(BaseResponse.success(result, "Applications retrieved successfully"));
     }
 }

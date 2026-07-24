@@ -1,0 +1,89 @@
+{
+  "info": {
+    "_postman_id": "af8a156e-8b9a-4fd2-a720-302efd02be5f",
+    "name": "Subsidy System Authentication API",
+    "description": "Postman collection covering login, logout and token refresh requests in the Government Subsidy Tracking System.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Authenticates a user and returns a JWT Bearer token with authorization details."
+      },
+      "response": []
+    },
+    {
+      "name": "Token Refresh (Optional)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/auth/refresh",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "refresh"
+          ]
+        },
+        "description": "Generates a new JWT token for a valid refresh request (optional flow)."
+      },
+      "response": []
+    },
+    {
+      "name": "User Logout (Optional Placeholder)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/v1/auth/logout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "logout"
+          ]
+        },
+        "description": "Placeholder endpoint coordinating client-side token discardment."
+      },
+      "response": []
+    }
+  ]
+}

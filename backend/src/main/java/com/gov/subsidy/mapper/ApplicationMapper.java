@@ -104,9 +104,10 @@ public class ApplicationMapper implements GenericMapper<Application, Application
                 .workflowStatus(ApplicationStatus.SUBMITTED)
                 .currentStage(WorkflowStage.INITIATION)
                 .submittedDate(LocalDateTime.now())
-                .priority(createDto.getPriority() == null ? null : PriorityLevel.valueOf(createDto.getPriority()))
+                .priority(createDto.getPriorityTier() == null ? null : PriorityLevel.valueOf(createDto.getPriorityTier()))
                 .isFlagged(false)
                 .reVerificationRequested(false)
+                .remarks(createDto.getRemarks())
                 .build();
     }
 }

@@ -13,5 +13,6 @@ package com.gov.subsidy.enums;
 public enum EligibilityResult {
     ELIGIBLE,
     REJECTED,
-    PENDING
+    PENDING,
+    NOT_ELIGIBLE
 }

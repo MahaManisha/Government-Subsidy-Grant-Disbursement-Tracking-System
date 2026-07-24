@@ -113,6 +113,38 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleAccessDeniedException(
+            org.springframework.security.access.AccessDeniedException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .timestamp(LocalDateTime.now())
+                .message("Access Denied")
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message("Forbidden: " + ex.getMessage())
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleNoResourceFoundException(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .timestamp(LocalDateTime.now())
+                .message(ex.getMessage())
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message("Resource not found")
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse<ErrorDetails>> handleGlobalException(Exception ex, WebRequest request) {
         ErrorDetails details = ErrorDetails.builder()

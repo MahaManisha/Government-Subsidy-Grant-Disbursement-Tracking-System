@@ -84,6 +84,16 @@ public class SchemeServiceImpl implements SchemeService {
                 .endDate(createDto.getEndDate())
                 .active(true)
                 .status(status)
+                .minAge(createDto.getMinAge())
+                .maxAge(createDto.getMaxAge())
+                .maxAnnualIncome(createDto.getMaxAnnualIncome())
+                .gender(createDto.getGender())
+                .category(createDto.getCategory())
+                .occupation(createDto.getOccupation())
+                .state(createDto.getState())
+                .district(createDto.getDistrict())
+                .requiredDocuments(createDto.getRequiredDocuments())
+                .maxGrantAmount(createDto.getMaxGrantAmount())
                 .build();
 
         Scheme saved = schemeRepository.save(scheme);
@@ -166,6 +176,16 @@ public class SchemeServiceImpl implements SchemeService {
         existing.setEndDate(updateDto.getEndDate());
         existing.setActive(updateDto.getActive());
         existing.setStatus(status);
+        existing.setMinAge(updateDto.getMinAge());
+        existing.setMaxAge(updateDto.getMaxAge());
+        existing.setMaxAnnualIncome(updateDto.getMaxAnnualIncome());
+        existing.setGender(updateDto.getGender());
+        existing.setCategory(updateDto.getCategory());
+        existing.setOccupation(updateDto.getOccupation());
+        existing.setState(updateDto.getState());
+        existing.setDistrict(updateDto.getDistrict());
+        existing.setRequiredDocuments(updateDto.getRequiredDocuments());
+        existing.setMaxGrantAmount(updateDto.getMaxGrantAmount());
 
         Scheme updated = schemeRepository.save(existing);
         return schemeMapper.toDto(updated);

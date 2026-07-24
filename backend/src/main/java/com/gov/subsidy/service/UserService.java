@@ -11,7 +11,8 @@ import java.util.List;
 public interface UserService {
 
     /**
-     * Creates a new user in the system with encrypted password and assigned roles.
+     * Creates a new staff user account with encrypted password and assigned roles.
+     * ROLE_BENEFICIARY is NOT allowed via this method — use AuthRegistrationService for citizen registration.
      *
      * @param createDto DTO containing user registration details
      * @return the created UserDto
@@ -35,6 +36,7 @@ public interface UserService {
 
     /**
      * Updates an existing user's details.
+     * ROLE_BENEFICIARY is NOT allowed to be assigned via this method.
      *
      * @param id        User primary key
      * @param createDto DTO containing updated user details
@@ -48,4 +50,38 @@ public interface UserService {
      * @param id User primary key
      */
     void deleteUser(Long id);
+
+    /**
+     * Permanently deletes a user account from the database (hard delete).
+     *
+     * @param id                      User primary key
+     * @param performingAdminUsername Username of the admin performing the deletion
+     */
+    void deleteUserPermanently(Long id, String performingAdminUsername);
+
+    /**
+     * Activates a previously deactivated user account.
+     * Only ROLE_ADMIN should invoke this method.
+     *
+     * @param id User primary key
+     */
+    void activateUser(Long id);
+
+    /**
+     * Resets a user's password. Encrypts the new password with BCrypt before persisting.
+     * Only ROLE_ADMIN should invoke this method.
+     *
+     * @param id          User primary key
+     * @param newPassword the plain-text new password (will be BCrypt-encoded)
+     * @param confirmPassword must match newPassword
+     */
+    void resetPassword(Long id, String newPassword, String confirmPassword);
+
+    /**
+     * Retrieves a single user by username.
+     *
+     * @param username User's unique username
+     * @return the matched UserDto
+     */
+    UserDto getUserByUsername(String username);
 }

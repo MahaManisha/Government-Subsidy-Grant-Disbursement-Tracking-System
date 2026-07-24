@@ -86,12 +86,16 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
                 .uniqueIdNumber(createDto.getUniqueIdNumber())
                 .phoneNumber(createDto.getPhoneNumber())
                 .address(createDto.getAddress())
+                .district(createDto.getDistrict())
+                .state(createDto.getState())
                 .bankAccountNumber(createDto.getBankAccountNumber())
                 .bankIfscCode(createDto.getBankIfscCode())
                 .annualIncome(createDto.getAnnualIncome())
+                .dateOfBirth(createDto.getDateOfBirth())
                 .eligibilityStatus(eligibilityStatus)
                 .gender(gender)
                 .category(category)
+                .occupation(createDto.getOccupation())
                 .build();
 
         // --- Link User account (optional) ---
@@ -180,6 +184,8 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
         // --- Apply changes (uniqueIdNumber and user are intentionally not updated) ---
         existing.setPhoneNumber(updateDto.getPhoneNumber());
         existing.setAddress(updateDto.getAddress());
+        existing.setDistrict(updateDto.getDistrict());
+        existing.setState(updateDto.getState());
         existing.setBankAccountNumber(updateDto.getBankAccountNumber());
         existing.setBankIfscCode(updateDto.getBankIfscCode());
         existing.setAnnualIncome(updateDto.getAnnualIncome());
@@ -187,6 +193,7 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
         existing.setEligibilityStatus(eligibilityStatus);
         existing.setGender(gender);
         existing.setCategory(category);
+        existing.setOccupation(updateDto.getOccupation());
 
         Beneficiary updated = beneficiaryRepository.save(existing);
         return beneficiaryMapper.toDto(updated);
@@ -202,6 +209,15 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
             throw new ResourceNotFoundException("Beneficiary not found with ID: " + id);
         }
         beneficiaryRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BeneficiaryDto getBeneficiaryByUsername(String username) {
+        Beneficiary beneficiary = beneficiaryRepository.findByUserUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Beneficiary profile not found for user: " + username));
+        return beneficiaryMapper.toDto(beneficiary);
     }
 
     // =========================================================================

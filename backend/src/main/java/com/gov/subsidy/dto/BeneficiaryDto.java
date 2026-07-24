@@ -29,6 +29,7 @@ public class BeneficiaryDto {
     private String eligibilityStatus;
     private String gender;
     private String category;
+    private String occupation;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String createdBy;

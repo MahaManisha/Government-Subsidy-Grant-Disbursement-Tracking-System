@@ -19,7 +19,8 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Government Subsidy/Grant Disbursement Tracking System API")
                         .version("1.0.0")
-                        .description("Enterprise RESTful API for tracking government subsidies, grant disbursements, and transaction auditing.")
+                        .description("Enterprise RESTful API for tracking government subsidies, grant disbursements, and transaction auditing. " +
+                                "Secured with JWT and Role-Based Access Control (RBAC) for Admin, Beneficiary, Field Officer, District Officer, and Finance Officer roles.")
                         .contact(new Contact()
                                 .name("System Administrator")
                                 .email("admin.subsidy@gov.in"))

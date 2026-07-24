@@ -100,4 +100,13 @@ public class BeneficiaryUpdateDto {
             allowableValues = {"GENERAL", "OBC", "SC", "ST", "BPL"}
     )
     private String category;
+
+    @Schema(description = "District of the beneficiary", example = "Central Delhi")
+    private String district;
+
+    @Schema(description = "State of the beneficiary", example = "Delhi")
+    private String state;
+
+    @Schema(description = "Occupation of the beneficiary", example = "Agricultural / Marginal Farmer")
+    private String occupation;
 }

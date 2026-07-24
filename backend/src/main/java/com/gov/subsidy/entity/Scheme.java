@@ -69,6 +69,36 @@ public class Scheme extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     private SchemeStatus status;
 
+    @Column(name = "min_age")
+    private Integer minAge;
+
+    @Column(name = "max_age")
+    private Integer maxAge;
+
+    @Column(name = "max_annual_income", precision = 17, scale = 2)
+    private BigDecimal maxAnnualIncome;
+
+    @Column(name = "gender", length = 30)
+    private String gender;
+
+    @Column(name = "category", length = 30)
+    private String category;
+
+    @Column(name = "occupation", length = 100)
+    private String occupation;
+
+    @Column(name = "state", length = 100)
+    private String state;
+
+    @Column(name = "district", length = 100)
+    private String district;
+
+    @Column(name = "required_documents", length = 500)
+    private String requiredDocuments;
+
+    @Column(name = "max_grant_amount", precision = 17, scale = 2)
+    private BigDecimal maxGrantAmount;
+
     @AssertTrue(message = "End date must be after the start date")
     private boolean isEndDateAfterStartDate() {
         if (startDate == null || endDate == null) {

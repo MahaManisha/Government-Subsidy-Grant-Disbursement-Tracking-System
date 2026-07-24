@@ -40,4 +40,11 @@ public interface ApplicationService {
      *                                                                for the same scheme
      */
     ApplicationDto submitApplication(ApplicationCreateDto createDto);
+
+    /**
+     * Retrieves all subsidy applications from the database.
+     *
+     * @return list of all applications mapped to DTOs
+     */
+    java.util.List<ApplicationDto> getAllApplications();
 }

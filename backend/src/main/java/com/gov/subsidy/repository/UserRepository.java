@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -20,6 +21,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    @Query("SELECT DISTINCT u FROM User u JOIN u.roles r WHERE r.name IN :roles")
+    List<User> findUsersByRoles(@Param("roles") Set<RoleType> roles);
 
     /**
      * Find all active users that have the specified role.

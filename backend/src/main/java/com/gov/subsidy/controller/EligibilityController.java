@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * REST controller exposing the Eligibility Scoring Engine endpoint.
@@ -205,6 +206,7 @@ public class EligibilityController {
                     )
             )
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<EligibilityScoringResponseDto>> scoreApplication(
             @Parameter(description = "Primary key of the application to score", example = "1", required = true)
             @PathVariable Long id) {

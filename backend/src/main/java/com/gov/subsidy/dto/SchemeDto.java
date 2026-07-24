@@ -25,6 +25,16 @@ public class SchemeDto {
     private LocalDate endDate;
     private boolean active;
     private String status;
+    private Integer minAge;
+    private Integer maxAge;
+    private BigDecimal maxAnnualIncome;
+    private String gender;
+    private String category;
+    private String occupation;
+    private String state;
+    private String district;
+    private String requiredDocuments;
+    private BigDecimal maxGrantAmount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String createdBy;

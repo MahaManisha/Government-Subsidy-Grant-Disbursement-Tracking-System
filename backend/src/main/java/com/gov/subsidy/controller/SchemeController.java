@@ -18,6 +18,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -149,6 +150,7 @@ public class SchemeController {
                     )
             )
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<SchemeDto>> createScheme(
             @Valid @RequestBody SchemeCreateDto createDto) {
 
@@ -360,6 +362,7 @@ public class SchemeController {
                     )
             )
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<SchemeDto>> updateScheme(
             @Parameter(description = "Unique numeric ID of the scheme to update", example = "1", required = true)
             @PathVariable Long id,
@@ -406,6 +409,7 @@ public class SchemeController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
             )
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<Void>> deleteScheme(
             @Parameter(description = "Unique numeric ID of the scheme to delete", example = "1", required = true)
             @PathVariable Long id) {

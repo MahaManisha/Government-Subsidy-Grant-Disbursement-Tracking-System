@@ -119,4 +119,7 @@ public class BeneficiaryCreateDto {
             allowableValues = {"GENERAL", "OBC", "SC", "ST", "BPL"}
     )
     private String category;
+
+    @Schema(description = "Occupation of the beneficiary", example = "Agricultural / Marginal Farmer")
+    private String occupation;
 }

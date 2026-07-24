@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PostAuthorize;
 
 import java.util.List;
 
@@ -30,6 +32,7 @@ public class ComplianceController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @applicationRepository.findById(#request.applicationId).orElse(null) != null && @applicationRepository.findById(#request.applicationId).orElse(null).beneficiary.user != null && @applicationRepository.findById(#request.applicationId).orElse(null).beneficiary.user.username == principal.username)")
     @Operation(summary = "Create a Compliance Record", description = "Submits proof and schedules an inspection for a milestone payment.")
     public ResponseEntity<BaseResponse<ComplianceDto>> createComplianceRecord(@Valid @RequestBody ComplianceRequestDto request) {
         ComplianceDto dto = complianceService.createComplianceRecord(request);
@@ -37,6 +40,7 @@ public class ComplianceController {
     }
 
     @GetMapping("/{id}")
+    @PostAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @beneficiaryServiceImpl.getBeneficiaryById(returnObject.body.data.beneficiaryId).user != null && @beneficiaryServiceImpl.getBeneficiaryById(returnObject.body.data.beneficiaryId).user.username == principal.username)")
     @Operation(summary = "Get Compliance Details", description = "Retrieves compliance record details by ID.")
     public ResponseEntity<BaseResponse<ComplianceDto>> getComplianceDetails(@PathVariable Long id) {
         ComplianceDto dto = complianceService.getComplianceDetails(id);
@@ -44,6 +48,7 @@ public class ComplianceController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Update Compliance Record", description = "Updates details, remarks, inspection dates, or metadata of an active compliance record.")
     public ResponseEntity<BaseResponse<ComplianceDto>> updateCompliance(
             @PathVariable Long id,
@@ -53,6 +58,7 @@ public class ComplianceController {
     }
 
     @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Approve Compliance", description = "Approves the compliance checks, releasing blocks on the next milestone release.")
     public ResponseEntity<BaseResponse<ComplianceDto>> approveCompliance(@PathVariable Long id) {
         ComplianceDto dto = complianceService.approveCompliance(id);
@@ -60,6 +66,7 @@ public class ComplianceController {
     }
 
     @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Reject Compliance", description = "Rejects compliance checks and records officer reasons.")
     public ResponseEntity<BaseResponse<ComplianceDto>> rejectCompliance(
             @PathVariable Long id,
@@ -69,6 +76,7 @@ public class ComplianceController {
     }
 
     @GetMapping("/application/{applicationId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @applicationRepository.findById(#applicationId).orElse(null) != null && @applicationRepository.findById(#applicationId).orElse(null).beneficiary.user != null && @applicationRepository.findById(#applicationId).orElse(null).beneficiary.user.username == principal.username)")
     @Operation(summary = "Get Compliances by Application ID", description = "Retrieves all compliance checks submitted for a specific application ID.")
     public ResponseEntity<BaseResponse<List<ComplianceDto>>> getCompliancesByApplication(@PathVariable Long applicationId) {
         List<ComplianceDto> compliances = complianceService.getCompliancesByApplication(applicationId);

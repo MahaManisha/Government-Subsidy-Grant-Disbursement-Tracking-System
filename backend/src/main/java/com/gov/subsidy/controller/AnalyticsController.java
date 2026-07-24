@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping(ApiConstants.API_V1_PREFIX + "/analytics")
@@ -25,7 +26,8 @@ public class AnalyticsController {
         this.analyticsService = analyticsService;
     }
 
-    @GetMapping("/report")
+    @GetMapping({"/report", "/dashboard"})
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Get Regional Analytics Report", description = "Generates a dashboard-friendly summary of regional fund distributions (district/state), approval/rejection rates, compliance ratios, and popularity indices.")
     public ResponseEntity<BaseResponse<AnalyticsReportDto>> getRegionalAnalyticsReport() {
         AnalyticsReportDto report = analyticsService.getRegionalAnalytics();

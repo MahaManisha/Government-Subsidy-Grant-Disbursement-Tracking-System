@@ -9,6 +9,7 @@ import com.gov.subsidy.entity.User;
 import com.gov.subsidy.entity.Verification;
 import com.gov.subsidy.entity.VerificationHistory;
 import com.gov.subsidy.enums.ApplicationStatus;
+import com.gov.subsidy.enums.RoleType;
 import com.gov.subsidy.enums.VerificationStatus;
 import com.gov.subsidy.enums.WorkflowStage;
 import com.gov.subsidy.exception.DuplicateResourceException;
@@ -19,7 +20,10 @@ import com.gov.subsidy.repository.ApplicationRepository;
 import com.gov.subsidy.repository.UserRepository;
 import com.gov.subsidy.repository.VerificationHistoryRepository;
 import com.gov.subsidy.repository.VerificationRepository;
+import com.gov.subsidy.security.CustomUserDetails;
 import com.gov.subsidy.service.VerificationService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -107,7 +111,7 @@ public class VerificationServiceImpl implements VerificationService {
                     application.getApplicationNumber());
         }
 
-        User fieldOfficer = loadUser(request.getFieldOfficerId());
+        User fieldOfficer = resolveOfficer(request.getFieldOfficerId());
 
         // Create Verification record
         Verification verification = Verification.builder()
@@ -143,10 +147,10 @@ public class VerificationServiceImpl implements VerificationService {
 
         Application application = loadApplication(applicationId);
         Verification verification = loadVerification(applicationId);
-        User officer = loadUser(request.getOfficerId());
+        User officer = resolveOfficer(request.getOfficerId());
 
-        // Guard: must be FIELD_VERIFICATION stage
-        if (application.getCurrentStage() != WorkflowStage.FIELD_VERIFICATION) {
+        // Guard: must be FIELD_VERIFICATION or FIELD_VERIFICATION_PENDING stage
+        if (application.getCurrentStage() != WorkflowStage.FIELD_VERIFICATION && application.getCurrentStage() != WorkflowStage.FIELD_VERIFICATION_PENDING) {
             throw new InvalidWorkflowTransitionException(
                     "Application '" + application.getApplicationNumber() +
                     "' is at stage " + application.getCurrentStage() +
@@ -160,19 +164,32 @@ public class VerificationServiceImpl implements VerificationService {
                 verification.setStatus(VerificationStatus.VERIFIED);
                 verification.setVerifiedDate(LocalDateTime.now());
                 verification.setRemarks(request.getRemarks());
-                application.setCurrentStage(WorkflowStage.DISTRICT_REVIEW);
-                application.setWorkflowStatus(ApplicationStatus.UNDER_REVIEW);
+                verification.setFieldOfficer(officer);
+
+                application.setCurrentStage(WorkflowStage.DISTRICT_REVIEW_PENDING);
+                application.setWorkflowStatus(ApplicationStatus.FIELD_VERIFIED);
                 application.setVerifiedDate(LocalDateTime.now());
+                application.setRemarks(request.getRemarks());
                 application.setReVerificationRequested(false);
+
+                // Auto-assign application to the appropriate District Officer
+                List<User> districtOfficers = userRepository.findLeastLoadedActiveUsersByRole(RoleType.ROLE_DISTRICT_OFFICER);
+                if (!districtOfficers.isEmpty()) {
+                    application.setAssignedOfficer(districtOfficers.get(0));
+                }
+
                 appendHistory(verification, officer, VerificationStatus.VERIFIED,
-                        "Field verification approved. " + nullSafe(request.getRemarks()));
+                        "Field verification approved. Forwarded to District Officer. " + nullSafe(request.getRemarks()));
             }
             case ACTION_REJECT -> {
                 requireRemarks(request, "Rejection");
                 verification.setStatus(VerificationStatus.REJECTED);
                 verification.setRemarks(request.getRemarks());
+                verification.setFieldOfficer(officer);
+
                 application.setWorkflowStatus(ApplicationStatus.REJECTED);
                 application.setRejectionReason(request.getRejectionReason());
+                application.setRemarks(request.getRemarks());
                 application.setFlagged(true);
                 appendHistory(verification, officer, VerificationStatus.REJECTED,
                         "Field verification rejected. " + nullSafe(request.getRemarks()));
@@ -181,8 +198,11 @@ public class VerificationServiceImpl implements VerificationService {
                 requireRemarks(request, "Re-verification request");
                 verification.setStatus(VerificationStatus.RE_VERIFICATION_REQUESTED);
                 verification.setRemarks(request.getRemarks());
+                verification.setFieldOfficer(officer);
+
                 application.setWorkflowStatus(ApplicationStatus.RE_VERIFICATION_REQUESTED);
-                application.setCurrentStage(WorkflowStage.FIELD_VERIFICATION);
+                application.setCurrentStage(WorkflowStage.FIELD_VERIFICATION_PENDING);
+                application.setRemarks(request.getRemarks());
                 application.setReVerificationRequested(true);
                 appendHistory(verification, officer, VerificationStatus.RE_VERIFICATION_REQUESTED,
                         "Re-verification requested. " + nullSafe(request.getRemarks()));
@@ -190,9 +210,9 @@ public class VerificationServiceImpl implements VerificationService {
         }
 
         application.setLastModifiedDate(LocalDateTime.now());
-        verificationRepository.save(verification);
-        applicationRepository.save(application);
-        return buildResponse(verification);
+        Verification savedVerification = verificationRepository.saveAndFlush(verification);
+        Application savedApplication = applicationRepository.saveAndFlush(application);
+        return buildResponse(savedVerification);
     }
 
     // =========================================================================
@@ -205,10 +225,10 @@ public class VerificationServiceImpl implements VerificationService {
 
         Application application = loadApplication(applicationId);
         Verification verification = loadVerification(applicationId);
-        User officer = loadUser(request.getOfficerId());
+        User officer = resolveOfficer(request.getOfficerId());
 
-        // Guard: must be DISTRICT_REVIEW stage
-        if (application.getCurrentStage() != WorkflowStage.DISTRICT_REVIEW) {
+        // Guard: must be DISTRICT_REVIEW or DISTRICT_REVIEW_PENDING stage
+        if (application.getCurrentStage() != WorkflowStage.DISTRICT_REVIEW && application.getCurrentStage() != WorkflowStage.DISTRICT_REVIEW_PENDING) {
             throw new InvalidWorkflowTransitionException(
                     "Application '" + application.getApplicationNumber() +
                     "' is at stage " + application.getCurrentStage() +
@@ -221,7 +241,7 @@ public class VerificationServiceImpl implements VerificationService {
             case ACTION_APPROVE -> {
                 verification.setStatus(VerificationStatus.VERIFIED);
                 verification.setRemarks(request.getRemarks());
-                application.setCurrentStage(WorkflowStage.FINANCE_REVIEW);
+                application.setCurrentStage(WorkflowStage.FINANCE_REVIEW_PENDING);
                 application.setWorkflowStatus(ApplicationStatus.UNDER_REVIEW);
                 application.setReVerificationRequested(false);
                 appendHistory(verification, officer, VerificationStatus.VERIFIED,
@@ -242,7 +262,7 @@ public class VerificationServiceImpl implements VerificationService {
                 verification.setStatus(VerificationStatus.RE_VERIFICATION_REQUESTED);
                 verification.setRemarks(request.getRemarks());
                 application.setWorkflowStatus(ApplicationStatus.RE_VERIFICATION_REQUESTED);
-                application.setCurrentStage(WorkflowStage.FIELD_VERIFICATION);
+                application.setCurrentStage(WorkflowStage.FIELD_VERIFICATION_PENDING);
                 application.setReVerificationRequested(true);
                 appendHistory(verification, officer, VerificationStatus.RE_VERIFICATION_REQUESTED,
                         "Sent back for field re-verification. " + nullSafe(request.getRemarks()));
@@ -265,10 +285,10 @@ public class VerificationServiceImpl implements VerificationService {
 
         Application application = loadApplication(applicationId);
         Verification verification = loadVerification(applicationId);
-        User officer = loadUser(request.getOfficerId());
+        User officer = resolveOfficer(request.getOfficerId());
 
-        // Guard: must be FINANCE_REVIEW stage
-        if (application.getCurrentStage() != WorkflowStage.FINANCE_REVIEW) {
+        // Guard: must be FINANCE_REVIEW or FINANCE_REVIEW_PENDING stage
+        if (application.getCurrentStage() != WorkflowStage.FINANCE_REVIEW && application.getCurrentStage() != WorkflowStage.FINANCE_REVIEW_PENDING) {
             throw new InvalidWorkflowTransitionException(
                     "Application '" + application.getApplicationNumber() +
                     "' is at stage " + application.getCurrentStage() +
@@ -304,7 +324,7 @@ public class VerificationServiceImpl implements VerificationService {
                 verification.setStatus(VerificationStatus.RE_VERIFICATION_REQUESTED);
                 verification.setRemarks(request.getRemarks());
                 application.setWorkflowStatus(ApplicationStatus.RE_VERIFICATION_REQUESTED);
-                application.setCurrentStage(WorkflowStage.FIELD_VERIFICATION);
+                application.setCurrentStage(WorkflowStage.FIELD_VERIFICATION_PENDING);
                 application.setReVerificationRequested(true);
                 appendHistory(verification, officer, VerificationStatus.RE_VERIFICATION_REQUESTED,
                         "Sent back for field re-verification from Finance. " + nullSafe(request.getRemarks()));
@@ -349,10 +369,18 @@ public class VerificationServiceImpl implements VerificationService {
                         "Application not found with ID: " + applicationId));
     }
 
-    private User loadUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found with ID: " + userId));
+    private User resolveOfficer(Long userId) {
+        if (userId != null) {
+            return userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Officer not found with ID: " + userId));
+        }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails customUserDetails) {
+            return customUserDetails.getUser();
+        }
+        throw new ResourceNotFoundException(
+                "Unable to resolve your officer ID. Please refresh the page and try again.");
     }
 
     private Verification loadVerification(Long applicationId) {

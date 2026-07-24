@@ -19,6 +19,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PostAuthorize;
 
 import java.util.List;
 
@@ -155,6 +157,7 @@ public class BeneficiaryController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
             )
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<BeneficiaryDto>> createBeneficiary(
             @Valid @RequestBody BeneficiaryCreateDto createDto) {
 
@@ -208,9 +211,46 @@ public class BeneficiaryController {
                     )
             )
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER', 'BENEFICIARY')")
     public ResponseEntity<BaseResponse<List<BeneficiaryDto>>> getAllBeneficiaries() {
         List<BeneficiaryDto> beneficiaries = beneficiaryService.getAllBeneficiaries();
         return ResponseEntity.ok(BaseResponse.success(beneficiaries, "Beneficiary list fetched successfully"));
+    }
+
+    // =========================================================================
+    // GET /v1/beneficiaries/me — Get Logged-in Beneficiary Profile
+    // =========================================================================
+
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('BENEFICIARY')")
+    @Operation(
+            summary = "Retrieve the logged-in beneficiary's profile",
+            description = "Resolves the current authenticated user context and returns their linked beneficiary profile details."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Beneficiary details fetched successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized access",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Beneficiary profile not found",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            )
+    })
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> getMyProfile(java.security.Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(BaseResponse.error("Unauthorized"));
+        }
+        BeneficiaryDto beneficiary = beneficiaryService.getBeneficiaryByUsername(principal.getName());
+        return ResponseEntity.ok(BaseResponse.success(beneficiary, "Beneficiary profile fetched successfully"));
     }
 
     // =========================================================================
@@ -252,6 +292,7 @@ public class BeneficiaryController {
                     )
             )
     })
+    @PostAuthorize("hasRole('ADMIN') or (returnObject != null && returnObject.body != null && returnObject.body.data != null && returnObject.body.data.user != null && returnObject.body.data.user.username == principal.username)")
     public ResponseEntity<BaseResponse<BeneficiaryDto>> getBeneficiaryById(
             @Parameter(description = "Unique numeric ID of the beneficiary", example = "1", required = true)
             @PathVariable Long id) {
@@ -311,6 +352,7 @@ public class BeneficiaryController {
                     )
             )
     })
+    @PreAuthorize("hasRole('ADMIN') or (principal != null && @beneficiaryServiceImpl.getBeneficiaryById(#id).user != null && @beneficiaryServiceImpl.getBeneficiaryById(#id).user.username == principal.username)")
     public ResponseEntity<BaseResponse<BeneficiaryDto>> updateBeneficiary(
             @Parameter(description = "Unique numeric ID of the beneficiary to update", example = "1", required = true)
             @PathVariable Long id,
@@ -357,6 +399,7 @@ public class BeneficiaryController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
             )
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<Void>> deleteBeneficiary(
             @Parameter(description = "Unique numeric ID of the beneficiary to delete", example = "1", required = true)
             @PathVariable Long id) {

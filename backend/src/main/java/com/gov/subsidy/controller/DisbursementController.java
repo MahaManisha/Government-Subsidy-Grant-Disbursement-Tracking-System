@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PostAuthorize;
 
 import java.util.List;
 
@@ -30,6 +32,7 @@ public class DisbursementController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Create a new Disbursement Plan", description = "Creates a disbursement plan with automated milestone generation and validation.")
     public ResponseEntity<BaseResponse<DisbursementPlanDto>> createPlan(@Valid @RequestBody DisbursementPlanRequestDto request) {
         DisbursementPlanDto created = disbursementService.createPlan(request);
@@ -37,6 +40,7 @@ public class DisbursementController {
     }
 
     @GetMapping("/{id}")
+    @PostAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @applicationRepository.findById(returnObject.body.data.applicationId).orElse(null) != null && @applicationRepository.findById(returnObject.body.data.applicationId).orElse(null).beneficiary.user != null && @applicationRepository.findById(returnObject.body.data.applicationId).orElse(null).beneficiary.user.username == principal.username)")
     @Operation(summary = "Get Disbursement Plan by ID", description = "Retrieves a specific disbursement plan and its scheduled milestones.")
     public ResponseEntity<BaseResponse<DisbursementPlanDto>> getPlan(@PathVariable Long id) {
         DisbursementPlanDto plan = disbursementService.getPlan(id);
@@ -44,6 +48,7 @@ public class DisbursementController {
     }
 
     @GetMapping("/application/{applicationId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @applicationRepository.findById(#applicationId).orElse(null) != null && @applicationRepository.findById(#applicationId).orElse(null).beneficiary.user != null && @applicationRepository.findById(#applicationId).orElse(null).beneficiary.user.username == principal.username)")
     @Operation(summary = "Get Disbursement Plan by Application ID", description = "Retrieves the disbursement plan associated with a given application ID.")
     public ResponseEntity<BaseResponse<DisbursementPlanDto>> getPlanByApplicationId(@PathVariable Long applicationId) {
         DisbursementPlanDto plan = disbursementService.getPlanByApplicationId(applicationId);
@@ -51,6 +56,7 @@ public class DisbursementController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Update Disbursement Plan", description = "Updates comments or regenerates milestones for an active disbursement plan.")
     public ResponseEntity<BaseResponse<DisbursementPlanDto>> updatePlan(
             @PathVariable Long id,
@@ -60,6 +66,7 @@ public class DisbursementController {
     }
 
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Cancel Disbursement Plan", description = "Cancels an active disbursement plan and marks pending milestones as FAILED.")
     public ResponseEntity<BaseResponse<DisbursementPlanDto>> cancelPlan(@PathVariable Long id) {
         DisbursementPlanDto cancelled = disbursementService.cancelPlan(id);
@@ -67,6 +74,7 @@ public class DisbursementController {
     }
 
     @PostMapping("/{id}/milestones/{milestoneNumber}/release")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Release Disbursement Milestone", description = "Releases a disbursement milestone payment if it is the first milestone or the previous milestone is COMPLIANT.")
     public ResponseEntity<BaseResponse<DisbursementPlanDto>> releaseMilestone(
             @PathVariable Long id,
@@ -77,6 +85,7 @@ public class DisbursementController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Get All Disbursement Plans", description = "Retrieves all disbursement plans currently registered in the system.")
     public ResponseEntity<BaseResponse<List<DisbursementPlanDto>>> getAllPlans() {
         List<DisbursementPlanDto> plans = disbursementService.getAllPlans();

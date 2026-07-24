@@ -77,4 +77,13 @@ public interface BeneficiaryService {
      * @throws com.gov.subsidy.exception.ResourceNotFoundException if no beneficiary exists with the given ID
      */
     void deleteBeneficiary(Long id);
+
+    /**
+     * Retrieves a beneficiary profile by the linked user's username.
+     *
+     * @param username the username of the linked user account
+     * @return the beneficiary represented as a {@link BeneficiaryDto}
+     * @throws com.gov.subsidy.exception.ResourceNotFoundException if no beneficiary exists for the username
+     */
+    BeneficiaryDto getBeneficiaryByUsername(String username);
 }

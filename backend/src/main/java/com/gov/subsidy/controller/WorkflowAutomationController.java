@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -108,6 +109,7 @@ public class WorkflowAutomationController {
             @ApiResponse(responseCode = "400", description = "Application is in a non-advanceable stage"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<WorkflowAutomationResponseDto>> advanceWorkflow(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -139,6 +141,7 @@ public class WorkflowAutomationController {
             @ApiResponse(responseCode = "200", description = "Escalation triggered successfully"),
             @ApiResponse(responseCode = "400", description = "Already at maximum review level")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<WorkflowAutomationResponseDto>> escalate(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -169,6 +172,7 @@ public class WorkflowAutomationController {
             @ApiResponse(responseCode = "200", description = "Re-verification triggered successfully"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER')")
     public ResponseEntity<BaseResponse<WorkflowAutomationResponseDto>> reVerify(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId,
@@ -201,6 +205,7 @@ public class WorkflowAutomationController {
             @ApiResponse(responseCode = "200", description = "Timeout handled — application escalated"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<WorkflowAutomationResponseDto>> handleTimeout(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {
@@ -256,6 +261,7 @@ public class WorkflowAutomationController {
             @ApiResponse(responseCode = "400", description = "Application is not in APPROVED status"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<WorkflowAutomationResponseDto>> markReadyForDisbursement(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {
@@ -284,6 +290,7 @@ public class WorkflowAutomationController {
             @ApiResponse(responseCode = "200", description = "Audit trail retrieved successfully"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER')")
     public ResponseEntity<BaseResponse<List<WorkflowAuditLogDto>>> getAuditTrail(
             @Parameter(description = "Application primary key", example = "1", required = true)
             @PathVariable Long applicationId) {

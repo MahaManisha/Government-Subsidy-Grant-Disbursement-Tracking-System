@@ -1,0 +1,43 @@
+{
+  "info": {
+    "_postman_id": "bf1a156e-8b9a-4fd2-a720-302efd02be5f",
+    "name": "Subsidy System Beneficiary Self-Registration API",
+    "description": "Postman request covering beneficiary registration in the Government Subsidy Tracking System.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Beneficiary Self-Registration",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Rajesh Kumar\",\n  \"username\": \"rajesh_kumar_new\",\n  \"password\": \"password123\",\n  \"confirmPassword\": \"password123\",\n  \"email\": \"rajesh.kumar.new@example.com\",\n  \"mobileNumber\": \"9876543219\",\n  \"aadhaarNumber\": \"987654321012\",\n  \"gender\": \"MALE\",\n  \"category\": \"GENERAL\",\n  \"dateOfBirth\": \"1992-08-15\",\n  \"address\": \"456 Golden Street, Sector 4, Gandhinagar\",\n  \"bankAccountNumber\": \"98765432109876\",\n  \"ifscCode\": \"SBIN0004321\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/v1/auth/register",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Allows a new citizen to register as a beneficiary. Assigns ROLE_BENEFICIARY and creates the corresponding user and beneficiary entities."
+      },
+      "response": []
+    }
+  ]
+}

@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PostAuthorize;
 
 import java.util.List;
 
@@ -26,6 +28,7 @@ public class ComplianceReminderController {
     }
 
     @PostMapping("/trigger")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Trigger Reminder Scan", description = "Manually triggers the compliance due/overdue scan, transitioning breached deadlines to NON_COMPLIANT and logging reminder history.")
     public ResponseEntity<BaseResponse<Integer>> triggerScan() {
         int count = reminderService.runAutoVerificationAndReminders();
@@ -33,6 +36,7 @@ public class ComplianceReminderController {
     }
 
     @GetMapping("/history/{complianceId}")
+    @PostAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && (returnObject.body.data == null || returnObject.body.data.isEmpty() || returnObject.body.data.get(0).recipientUsername == principal.username))")
     @Operation(summary = "Get Reminder History", description = "Retrieves the historical log of all SMS/Email/Dashboard reminders sent for a given compliance record.")
     public ResponseEntity<BaseResponse<List<ComplianceReminderDto>>> getReminderHistory(@PathVariable Long complianceId) {
         List<ComplianceReminderDto> history = reminderService.getReminderHistory(complianceId);

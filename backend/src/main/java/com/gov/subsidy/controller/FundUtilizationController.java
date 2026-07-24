@@ -14,6 +14,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PostAuthorize;
 
 @RestController
 @RequestMapping(ApiConstants.API_V1_PREFIX + "/fund-utilizations")
@@ -30,6 +32,7 @@ public class FundUtilizationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('BENEFICIARY') and principal != null && @applicationRepository.findById(#request.applicationId).orElse(null) != null && @applicationRepository.findById(#request.applicationId).orElse(null).beneficiary.user != null && @applicationRepository.findById(#request.applicationId).orElse(null).beneficiary.user.username == principal.username)")
     @Operation(summary = "Submit Fund Utilization", description = "Beneficiary submits utilization amount, purpose, and supporting documents proof.")
     public ResponseEntity<BaseResponse<FundUtilizationDto>> submitUtilization(@Valid @RequestBody FundUtilizationRequestDto request) {
         FundUtilizationDto dto = utilizationService.submitUtilization(request);
@@ -37,6 +40,7 @@ public class FundUtilizationController {
     }
 
     @GetMapping("/{id}")
+    @PostAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @beneficiaryServiceImpl.getBeneficiaryById(returnObject.body.data.beneficiaryId).user != null && @beneficiaryServiceImpl.getBeneficiaryById(returnObject.body.data.beneficiaryId).user.username == principal.username)")
     @Operation(summary = "Get Utilization Details", description = "Retrieves utilization detail record by ID.")
     public ResponseEntity<BaseResponse<FundUtilizationDto>> getUtilizationDetails(@PathVariable Long id) {
         FundUtilizationDto dto = utilizationService.getUtilizationDetails(id);
@@ -44,6 +48,7 @@ public class FundUtilizationController {
     }
 
     @PostMapping("/{id}/verify")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
     @Operation(summary = "Verify Utilization Record", description = "Officer approves (VERIFIED) or rejects (REJECTED) a utilization submission with verification comments.")
     public ResponseEntity<BaseResponse<FundUtilizationDto>> verifyUtilization(
             @PathVariable Long id,
@@ -55,6 +60,7 @@ public class FundUtilizationController {
     }
 
     @GetMapping("/application/{applicationId}/summary")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER') or (hasRole('BENEFICIARY') and principal != null && @applicationRepository.findById(#applicationId).orElse(null) != null && @applicationRepository.findById(#applicationId).orElse(null).beneficiary.user != null && @applicationRepository.findById(#applicationId).orElse(null).beneficiary.user.username == principal.username)")
     @Operation(summary = "Get Application Utilization Summary", description = "Calculates total released amount, total verified utilized amount, remaining balance, and utilization percentage split.")
     public ResponseEntity<BaseResponse<FundUtilizationSummaryDto>> getUtilizationSummary(@PathVariable Long applicationId) {
         FundUtilizationSummaryDto summary = utilizationService.getUtilizationSummary(applicationId);

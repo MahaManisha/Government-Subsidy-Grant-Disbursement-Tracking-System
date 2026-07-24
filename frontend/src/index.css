@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+}
+
+.dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dark Mode Overrides */
+.dark body {
+  background-color: var(--bg-primary);
+}
+
+.bg-white {
+  background-color: var(--bg-secondary) !important;
+}
+
+.text-slate-800, .text-slate-700 {
+  color: var(--text-primary) !important;
+}
+
+.text-slate-500, .text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+
+.border-slate-100, .border-slate-50, .border-slate-200 {
+  border-color: var(--border-color) !important;
+}
+
+.bg-slate-50 {
+  background-color: var(--bg-primary) !important;
+}
+
+.bg-slate-900 {
+  background-color: #0f172a !important;
+}

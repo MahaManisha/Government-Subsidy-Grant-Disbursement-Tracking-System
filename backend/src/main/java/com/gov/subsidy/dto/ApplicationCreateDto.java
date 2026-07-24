@@ -51,12 +51,18 @@ public class ApplicationCreateDto {
     )
     private BigDecimal requestedAmount;
 
-    @NotBlank(message = "Priority level is required")
+    @NotBlank(message = "Priority tier is required")
     @Schema(
-            description = "Application priority level. Allowed values: LOW, MEDIUM, HIGH, CRITICAL",
+            description = "Application priority tier. Allowed values: LOW, MEDIUM, HIGH, CRITICAL",
             example = "MEDIUM",
             allowableValues = {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
             requiredMode = Schema.RequiredMode.REQUIRED
     )
-    private String priority;
+    private String priorityTier;
+
+    @Schema(
+            description = "Optional remarks or notes about the subsidy request",
+            example = "Farmer requesting assistance for seed purchasing."
+    )
+    private String remarks;
 }
