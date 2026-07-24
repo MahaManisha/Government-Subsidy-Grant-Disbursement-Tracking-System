@@ -3,6 +3,8 @@ package com.gov.subsidy.service;
 import com.gov.subsidy.dto.ApplicationCreateDto;
 import com.gov.subsidy.dto.ApplicationDto;
 
+import java.util.List;
+
 /**
  * Service interface defining the business operations for the Application Submission module.
  *
@@ -40,4 +42,32 @@ public interface ApplicationService {
      *                                                                for the same scheme
      */
     ApplicationDto submitApplication(ApplicationCreateDto createDto);
+
+    /**
+     * Fetches a single application by its primary key.
+     *
+     * @param id the application's database ID
+     * @return the matching application as an {@link ApplicationDto}
+     * @throws com.gov.subsidy.exception.ResourceNotFoundException if no application exists with the given ID
+     */
+    ApplicationDto getApplicationById(Long id);
+
+    /**
+     * Fetches applications, optionally narrowed down by any combination of the given filters.
+     * All filters are optional (nullable) and are combined with logical AND. Passing every
+     * filter as {@code null} returns every application in the system.
+     *
+     * @param beneficiaryId     restrict to applications submitted by this beneficiary, or {@code null}
+     * @param schemeId          restrict to applications for this scheme, or {@code null}
+     * @param workflowStatus    restrict to applications with this {@code ApplicationStatus} name, or {@code null}
+     * @param currentStage      restrict to applications at this {@code WorkflowStage} name, or {@code null}
+     * @param assignedOfficerId restrict to applications assigned to this officer, or {@code null}
+     * @return the matching applications as {@link ApplicationDto} list (empty list if none match)
+     * @throws IllegalArgumentException if {@code workflowStatus} or {@code currentStage} is not a recognised enum value
+     */
+    List<ApplicationDto> getApplications(Long beneficiaryId,
+                                         Long schemeId,
+                                         String workflowStatus,
+                                         String currentStage,
+                                         Long assignedOfficerId);
 }

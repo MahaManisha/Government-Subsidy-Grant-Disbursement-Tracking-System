@@ -6,6 +6,7 @@ import com.gov.subsidy.dto.ApplicationDto;
 import com.gov.subsidy.dto.BaseResponse;
 import com.gov.subsidy.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,6 +17,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * REST controller exposing the Application Submission endpoint.
@@ -243,5 +246,82 @@ public class ApplicationController {
         ApplicationDto result = applicationService.submitApplication(createDto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(BaseResponse.success(result, "Subsidy application submitted successfully"));
+    }
+
+    // =========================================================================
+    // GET /v1/applications — List / Filter Applications
+    // =========================================================================
+
+    @GetMapping
+    @Operation(
+            summary = "List applications, optionally filtered",
+            description = """
+                    Returns applications matching every supplied filter (filters are combined with AND).
+                    Omit a parameter to ignore that filter. Calling this endpoint with no parameters
+                    returns every application in the system.
+
+                    Typical uses:
+                    - `?beneficiaryId=5` — an individual beneficiary's application history
+                    - `?assignedOfficerId=12` — an officer's current workload
+                    - `?workflowStatus=UNDER_REVIEW` — everything pending review
+                    - `?currentStage=FIELD_VERIFICATION` — everything awaiting field verification
+                    """
+    )
+    @ApiResponse(responseCode = "200", description = "Applications fetched successfully")
+    public ResponseEntity<BaseResponse<List<ApplicationDto>>> getApplications(
+            @Parameter(description = "Filter by beneficiary ID")
+            @RequestParam(required = false) Long beneficiaryId,
+            @Parameter(description = "Filter by scheme ID")
+            @RequestParam(required = false) Long schemeId,
+            @Parameter(description = "Filter by workflow status, e.g. SUBMITTED, UNDER_REVIEW, APPROVED, "
+                    + "REJECTED, READY_FOR_DISBURSEMENT, DISBURSED, RE_VERIFICATION_REQUESTED")
+            @RequestParam(required = false) String workflowStatus,
+            @Parameter(description = "Filter by workflow stage, e.g. INITIATION, FIELD_VERIFICATION, "
+                    + "DISTRICT_REVIEW, FINANCE_REVIEW, COMPLETED")
+            @RequestParam(required = false) String currentStage,
+            @Parameter(description = "Filter by assigned officer's user ID")
+            @RequestParam(required = false) Long assignedOfficerId) {
+
+        List<ApplicationDto> results = applicationService.getApplications(
+                beneficiaryId, schemeId, workflowStatus, currentStage, assignedOfficerId);
+        return ResponseEntity.ok(BaseResponse.success(results, "Applications fetched successfully"));
+    }
+
+    // =========================================================================
+    // GET /v1/applications/{id} — Get Application By ID
+    // =========================================================================
+
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "Retrieve a single application by ID",
+            description = "Fetches the full details of one subsidy application identified by its database ID."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Application fetched successfully"),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Application not found",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Not Found – 404",
+                                    value = """
+                                            {
+                                              "success": false,
+                                              "message": "Resource not found",
+                                              "data": {
+                                                "message": "Application not found with ID: 999",
+                                                "details": "uri=/v1/applications/999"
+                                              },
+                                              "timestamp": "2026-07-23T10:00:00"
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    public ResponseEntity<BaseResponse<ApplicationDto>> getApplicationById(@PathVariable Long id) {
+        ApplicationDto result = applicationService.getApplicationById(id);
+        return ResponseEntity.ok(BaseResponse.success(result, "Application fetched successfully"));
     }
 }

@@ -22,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.Year;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link ApplicationService} containing all business logic
@@ -50,9 +52,9 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationMapper applicationMapper;
 
     public ApplicationServiceImpl(ApplicationRepository applicationRepository,
-                                   BeneficiaryRepository beneficiaryRepository,
-                                   SchemeRepository schemeRepository,
-                                   ApplicationMapper applicationMapper) {
+                                  BeneficiaryRepository beneficiaryRepository,
+                                  SchemeRepository schemeRepository,
+                                  ApplicationMapper applicationMapper) {
         this.applicationRepository = applicationRepository;
         this.beneficiaryRepository = beneficiaryRepository;
         this.schemeRepository = schemeRepository;
@@ -80,7 +82,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         if (!scheme.isActive() || scheme.getStatus() != SchemeStatus.ACTIVE) {
             throw new InactiveSchemeException(
                     "Scheme '" + scheme.getName() + "' (ID: " + scheme.getId() + ") is not currently active. " +
-                    "Applications can only be submitted for schemes with status ACTIVE.");
+                            "Applications can only be submitted for schemes with status ACTIVE.");
         }
 
         // --- 4. Validate: No duplicate application (same beneficiary + same scheme) ---
@@ -88,7 +90,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 createDto.getBeneficiaryId(), createDto.getSchemeId())) {
             throw new DuplicateResourceException(
                     "Beneficiary with ID " + createDto.getBeneficiaryId() +
-                    " has already submitted an application for scheme '" + scheme.getName() + "'.");
+                            " has already submitted an application for scheme '" + scheme.getName() + "'.");
         }
 
         // --- 5. Parse priority enum ---
@@ -124,6 +126,61 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     // =========================================================================
+    // GET APPLICATION BY ID
+    // =========================================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApplicationDto getApplicationById(Long id) {
+        Application application = applicationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Application not found with ID: " + id));
+        return applicationMapper.toDto(application);
+    }
+
+    // =========================================================================
+    // GET APPLICATIONS (with optional filters)
+    // =========================================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ApplicationDto> getApplications(Long beneficiaryId,
+                                                Long schemeId,
+                                                String workflowStatus,
+                                                String currentStage,
+                                                Long assignedOfficerId) {
+
+        // Pick the most selective single-column query available as the starting point,
+        // then narrow further in memory. This keeps every DB query a simple, portable,
+        // derived Spring Data query (consistent with the rest of the repository layer)
+        // while still supporting combined filtering.
+        List<Application> results;
+        if (beneficiaryId != null) {
+            results = applicationRepository.findByBeneficiaryId(beneficiaryId);
+        } else if (schemeId != null) {
+            results = applicationRepository.findBySchemeId(schemeId);
+        } else if (assignedOfficerId != null) {
+            results = applicationRepository.findByAssignedOfficerId(assignedOfficerId);
+        } else if (workflowStatus != null) {
+            results = applicationRepository.findByWorkflowStatus(parseApplicationStatus(workflowStatus));
+        } else if (currentStage != null) {
+            results = applicationRepository.findByCurrentStage(parseWorkflowStage(currentStage));
+        } else {
+            results = applicationRepository.findAll();
+        }
+
+        return results.stream()
+                .filter(a -> beneficiaryId == null || a.getBeneficiary().getId().equals(beneficiaryId))
+                .filter(a -> schemeId == null || a.getScheme().getId().equals(schemeId))
+                .filter(a -> assignedOfficerId == null
+                        || (a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(assignedOfficerId)))
+                .filter(a -> workflowStatus == null || a.getWorkflowStatus() == parseApplicationStatus(workflowStatus))
+                .filter(a -> currentStage == null || a.getCurrentStage() == parseWorkflowStage(currentStage))
+                .map(applicationMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    // =========================================================================
     // PRIVATE HELPERS
     // =========================================================================
 
@@ -156,7 +213,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             if (attempts > 10) {
                 throw new IllegalStateException(
                         "Unable to generate a unique application number after 10 attempts. " +
-                        "Please retry the request.");
+                                "Please retry the request.");
             }
         } while (applicationRepository.existsByApplicationNumber(candidate));
 
@@ -176,7 +233,43 @@ public class ApplicationServiceImpl implements ApplicationService {
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new IllegalArgumentException(
                     "Invalid priority level '" + value + "'. " +
-                    "Allowed values are: LOW, MEDIUM, HIGH, CRITICAL.");
+                            "Allowed values are: LOW, MEDIUM, HIGH, CRITICAL.");
+        }
+    }
+
+    /**
+     * Parses a raw string into the corresponding {@link ApplicationStatus} enum constant.
+     *
+     * @param value the raw status string from a query parameter
+     * @return the matched {@link ApplicationStatus} constant
+     * @throws IllegalArgumentException if the value is not a recognised workflow status
+     */
+    private ApplicationStatus parseApplicationStatus(String value) {
+        try {
+            return ApplicationStatus.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException(
+                    "Invalid workflow status '" + value + "'. " +
+                            "Allowed values are: SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, " +
+                            "READY_FOR_DISBURSEMENT, DISBURSED, RE_VERIFICATION_REQUESTED.");
+        }
+    }
+
+    /**
+     * Parses a raw string into the corresponding {@link WorkflowStage} enum constant.
+     *
+     * @param value the raw stage string from a query parameter
+     * @return the matched {@link WorkflowStage} constant
+     * @throws IllegalArgumentException if the value is not a recognised workflow stage
+     */
+    private WorkflowStage parseWorkflowStage(String value) {
+        try {
+            return WorkflowStage.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException(
+                    "Invalid workflow stage '" + value + "'. " +
+                            "Allowed values are: INITIATION, FIELD_VERIFICATION, DISTRICT_REVIEW, " +
+                            "FINANCE_REVIEW, COMPLETED.");
         }
     }
 }
