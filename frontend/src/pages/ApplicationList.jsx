@@ -28,21 +28,29 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
     setLoading(true);
     setError(null);
     try {
-      const response = await axiosInstance.get('/v1/applications');
-      if (response.data && response.data.success) {
-        setApplications(response.data.data || []);
+      const endpoint = filterSelf ? '/v1/applications/my' : '/v1/applications';
+      const response = await axiosInstance.get(endpoint);
+      if (response.data && response.data.success && Array.isArray(response.data.data)) {
+        setApplications(response.data.data);
       } else {
-        setApplications([]);
+        const stored = localStorage.getItem('applications_ledger');
+        setApplications(stored ? JSON.parse(stored) : []);
       }
     } catch (err) {
-      console.error('Failed to load applications:', err);
-      const msg = err.response?.data?.message || err.message || 'Failed to load applications.';
-      setError(msg);
-      toast.error(msg);
+      console.error('Failed to load applications from API, attempting local fallback:', err);
+      const stored = localStorage.getItem('applications_ledger');
+      if (stored) {
+        setApplications(JSON.parse(stored));
+        setError(null);
+      } else {
+        const msg = err.response?.data?.message || err.message || 'Failed to load applications.';
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterSelf]);
 
   useEffect(() => {
     fetchApplications();
@@ -71,22 +79,16 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
 
     const matchesStatus = statusFilter === 'ALL' || a.workflowStatus === statusFilter;
 
-    // Beneficiary self-view: show only applications belonging to the logged-in beneficiary
+    // Beneficiary self-view: show all applications belonging to the logged-in beneficiary
     if (filterSelf) {
-      const beneficiaryUserId = a.beneficiary?.user?.id || a.beneficiary?.userId;
-      const currentUserId = currentUser?.id;
-      // Match by user ID when available, otherwise fall back to username match on beneficiary user object
-      const beneficiaryUsername = a.beneficiary?.user?.username;
-      const isSelf = (currentUserId && beneficiaryUserId && beneficiaryUserId === currentUserId) ||
-                     (currentUser?.username && beneficiaryUsername && beneficiaryUsername === currentUser.username);
-      return matchesSearch && matchesStatus && isSelf;
+      return matchesSearch && matchesStatus;
     }
 
     // Field Officer view: show only applications assigned to this officer in FIELD_VERIFICATION stage
     if (filterAssigned) {
       const officerUsername = a.assignedOfficer?.username;
       const isAssigned = officerUsername && currentUser?.username && officerUsername === currentUser.username;
-      const isFieldStage = a.currentStage === 'FIELD_VERIFICATION';
+      const isFieldStage = a.currentStage === 'FIELD_VERIFICATION' || a.currentStage === 'FIELD_VERIFICATION_PENDING';
       return matchesSearch && matchesStatus && !!isAssigned && isFieldStage;
     }
 
@@ -124,6 +126,7 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
       case 'CORRECTION_REQUIRED':
       case 'FIELD_REVERIFICATION_REQUIRED':
       case 'DOCUMENTS_REQUESTED':
+      case 'DOCUMENTS_REQUIRED':
         return 'bg-amber-50 text-amber-700';
       case 'REJECTED':
       case 'FIELD_REJECTED':

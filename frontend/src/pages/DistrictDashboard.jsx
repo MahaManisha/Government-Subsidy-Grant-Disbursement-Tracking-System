@@ -5,6 +5,8 @@ import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useRole } from '../layouts/ProtectedLayout';
 
+import { exportApplicationsCSV } from '../api/exportHelper';
+
 export default function DistrictDashboard() {
   const navigate = useNavigate();
   const auth = useRole();
@@ -110,16 +112,16 @@ export default function DistrictDashboard() {
   // Export report actions
   const handleExport = (reportType) => {
     let dataToExport = [];
-    let title = "";
+    let title = "district_report";
     if (reportType === 'PENDING') {
       dataToExport = districtReviews.filter(a => a.workflowStatus === 'UNDER_REVIEW' || a.workflowStatus === 'FIELD_VERIFIED');
-      title = "Pending Reviews";
+      title = "district_pending_reviews";
     } else if (reportType === 'APPROVED') {
       dataToExport = applications.filter(a => a.workflowStatus === 'DISTRICT_APPROVED' || a.currentStage === 'FINANCE_REVIEW' || a.currentStage === 'FINANCE_REVIEW_PENDING' || a.currentStage === 'COMPLETED');
-      title = "Approved Applications";
+      title = "district_approved_applications";
     } else if (reportType === 'REJECTED') {
       dataToExport = applications.filter(a => a.workflowStatus === 'DISTRICT_REJECTED' || a.workflowStatus === 'REJECTED');
-      title = "Rejected Applications";
+      title = "district_rejected_applications";
     } else if (reportType === 'MONTHLY_SUMMARY') {
       const currentMonth = new Date().getMonth();
       dataToExport = applications.filter(a => {
@@ -127,37 +129,10 @@ export default function DistrictDashboard() {
         const modDate = new Date(a.lastModifiedDate);
         return modDate.getMonth() === currentMonth;
       });
-      title = "Monthly Review Summary";
+      title = "district_monthly_summary";
     }
 
-    if (!dataToExport || dataToExport.length === 0) {
-      alert("No verification records available to export.");
-      return;
-    }
-
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Application Number,Beneficiary Name,Scheme Name,District,Requested Amount,Current Status,Verification Status,Verified By,Verification Date,Inspection Remarks\n";
-    dataToExport.forEach(item => {
-      const name = item.beneficiary?.name || `${item.beneficiary?.firstName || ''} ${item.beneficiary?.lastName || ''}`.trim() || 'N/A';
-      const district = item.beneficiary?.district || item.beneficiary?.state || '—';
-      const officerName = item.assignedOfficer
-        ? `${item.assignedOfficer.firstName || ''} ${item.assignedOfficer.lastName || ''}`.trim() || item.assignedOfficer.username
-        : 'District Officer';
-      const vDate = item.verifiedDate
-        ? new Date(item.verifiedDate).toLocaleDateString()
-        : (item.lastModifiedDate ? new Date(item.lastModifiedDate).toLocaleDateString() : '—');
-      const remarksText = (item.remarks || '').replace(/"/g, '""');
-
-      csvContent += `"${item.applicationNumber || ''}","${name}","${item.scheme?.name || ''}","${district}","${item.requestedAmount || ''}","${item.currentStage || ''}","${item.workflowStatus || ''}","${officerName}","${vDate}","${remarksText}"\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${title.toLowerCase().replace(/ /g, "_")}_report.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportApplicationsCSV(dataToExport, title);
   };
 
   // Recent activity logs

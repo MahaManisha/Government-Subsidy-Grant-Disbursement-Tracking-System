@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedLayout from './layouts/ProtectedLayout';
+import ProtectedLayout, { useRole } from './layouts/ProtectedLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import BeneficiaryList from './pages/BeneficiaryList';
@@ -28,6 +28,14 @@ import DistrictVerification from './pages/DistrictVerification';
 import FieldOfficerDashboard from './pages/FieldOfficerDashboard';
 import FinanceOfficerDashboard from './pages/FinanceOfficerDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+// Dynamic redirect helper for beneficiary role attempting to access admin list endpoints
+function BeneficiaryRedirectRoute({ targetPath, allowedRoles, children }) {
+  const auth = useRole();
+  if (auth && auth.activeRole === 'ROLE_BENEFICIARY') {
+    return <Navigate to={targetPath} replace />;
+  }
+  return <ProtectedRoute allowedRoles={allowedRoles}>{children}</ProtectedRoute>;
+}
 
 export default function App() {
   useEffect(() => {
@@ -66,9 +74,9 @@ export default function App() {
             <Route
               path="/beneficiaries"
               element={
-                <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+                <BeneficiaryRedirectRoute targetPath="/beneficiaries/my-profile" allowedRoles={['ROLE_ADMIN', 'ROLE_FIELD_OFFICER', 'ROLE_DISTRICT_OFFICER', 'ROLE_FINANCE_OFFICER']}>
                   <BeneficiaryList />
-                </ProtectedRoute>
+                </BeneficiaryRedirectRoute>
               }
             />
             <Route
@@ -138,9 +146,9 @@ export default function App() {
             <Route
               path="/applications"
               element={
-                <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_FIELD_OFFICER', 'ROLE_DISTRICT_OFFICER', 'ROLE_FINANCE_OFFICER']}>
+                <BeneficiaryRedirectRoute targetPath="/applications/my-applications" allowedRoles={['ROLE_ADMIN', 'ROLE_FIELD_OFFICER', 'ROLE_DISTRICT_OFFICER', 'ROLE_FINANCE_OFFICER']}>
                   <ApplicationList />
-                </ProtectedRoute>
+                </BeneficiaryRedirectRoute>
               }
             />
             <Route
@@ -265,9 +273,9 @@ export default function App() {
             <Route
               path="/disbursement"
               element={
-                <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_FINANCE_OFFICER']}>
+                <BeneficiaryRedirectRoute targetPath="/disbursement/status" allowedRoles={['ROLE_ADMIN', 'ROLE_FINANCE_OFFICER']}>
                   <Disbursement />
-                </ProtectedRoute>
+                </BeneficiaryRedirectRoute>
               }
             />
             <Route

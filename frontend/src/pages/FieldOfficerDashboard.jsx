@@ -4,6 +4,8 @@ import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useRole } from '../layouts/ProtectedLayout';
 
+import { exportApplicationsCSV } from '../api/exportHelper';
+
 export default function FieldOfficerDashboard() {
   const auth = useRole();
   const [applications, setApplications] = useState([]);
@@ -73,6 +75,7 @@ export default function FieldOfficerDashboard() {
   // Applications currently assigned to logged-in Field Officer pending verification
   const pendingApps = applications.filter(a => {
     if (!a.assignedOfficer) return false;
+    if (a.workflowStatus === 'ELIGIBILITY_REJECTED' || a.workflowStatus === 'REJECTED' || a.eligibilityResult === 'NOT_ELIGIBLE') return false;
     const officerUsername = typeof a.assignedOfficer === 'object'
       ? a.assignedOfficer.username
       : a.assignedOfficer;
@@ -84,6 +87,7 @@ export default function FieldOfficerDashboard() {
 
   // All applications assigned to or completed/verified by logged-in Field Officer
   const assignedApps = applications.filter(a => {
+    if (a.workflowStatus === 'ELIGIBILITY_REJECTED' || a.workflowStatus === 'REJECTED' || a.eligibilityResult === 'NOT_ELIGIBLE') return false;
     const isAssigned = a.assignedOfficer && (typeof a.assignedOfficer === 'object' ? a.assignedOfficer.username : a.assignedOfficer) === currentUsername;
     const isVerifiedByMe = (a.workflowStatus === 'FIELD_VERIFIED' || a.currentStage === 'DISTRICT_REVIEW_PENDING' || a.currentStage === 'DISTRICT_REVIEW') && (a.verifiedDate != null || a.lastModifiedDate != null);
     return isAssigned || isVerifiedByMe;
@@ -151,7 +155,9 @@ export default function FieldOfficerDashboard() {
     let backendAction = 'APPROVE';
     if (actionType === 'REJECT') {
       backendAction = 'REJECT';
-    } else if (actionType === 'REQUEST_ADDITIONAL_DOCS' || actionType === 'SCHEDULE_REVISIT') {
+    } else if (actionType === 'REQUEST_ADDITIONAL_DOCS') {
+      backendAction = 'REQUEST_DOCUMENTS';
+    } else if (actionType === 'SCHEDULE_REVISIT') {
       backendAction = 'REQUEST_REVERIFICATION';
     }
 
@@ -230,56 +236,29 @@ Details: ${doc.desc}
 
   const handleExport = (reportType) => {
     let dataToExport = [];
-    let title = "";
+    let title = "field_report";
     if (reportType === 'TODAY') {
       dataToExport = applications.filter(a => {
         if (!a.lastModifiedDate) return false;
         const isVerified = a.workflowStatus === 'FIELD_VERIFIED' || a.currentStage === 'DISTRICT_REVIEW_PENDING' || a.currentStage === 'DISTRICT_REVIEW';
         return isVerified && new Date(a.lastModifiedDate).toDateString() === todayStr;
       });
-      title = "Today's Verifications";
+      title = "field_today_verifications";
     } else if (reportType === 'WEEKLY') {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       dataToExport = applications.filter(a => a.lastModifiedDate && new Date(a.lastModifiedDate) >= sevenDaysAgo);
-      title = "Weekly Verifications";
+      title = "field_weekly_verifications";
     } else if (reportType === 'MONTHLY') {
       const currentMonth = new Date().getMonth();
       dataToExport = applications.filter(a => a.lastModifiedDate && new Date(a.lastModifiedDate).getMonth() === currentMonth);
-      title = "Monthly Verifications";
+      title = "field_monthly_verifications";
     } else if (reportType === 'PENDING') {
       dataToExport = assignedApps.filter(a => (a.currentStage === 'FIELD_VERIFICATION' || a.currentStage === 'FIELD_VERIFICATION_PENDING') && a.workflowStatus !== 'FIELD_VERIFIED');
-      title = "Pending Verifications";
+      title = "field_pending_verifications";
     }
 
-    if (!dataToExport || dataToExport.length === 0) {
-      alert("No verification records available to export.");
-      return;
-    }
-
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Application Number,Beneficiary Name,Scheme Name,District,Requested Amount,Current Status,Verification Status,Verified By,Verification Date,Inspection Remarks\n";
-    dataToExport.forEach(item => {
-      const name = item.beneficiary?.name || `${item.beneficiary?.firstName || ''} ${item.beneficiary?.lastName || ''}`.trim() || 'N/A';
-      const district = item.beneficiary?.district || item.beneficiary?.state || '—';
-      const officerName = item.assignedOfficer
-        ? `${item.assignedOfficer.firstName || ''} ${item.assignedOfficer.lastName || ''}`.trim() || item.assignedOfficer.username
-        : actingOfficerName;
-      const vDate = item.verifiedDate
-        ? new Date(item.verifiedDate).toLocaleDateString()
-        : (item.lastModifiedDate ? new Date(item.lastModifiedDate).toLocaleDateString() : '—');
-      const remarksText = (item.remarks || '').replace(/"/g, '""');
-
-      csvContent += `"${item.applicationNumber || ''}","${name}","${item.scheme?.name || ''}","${district}","${item.requestedAmount || ''}","${item.currentStage || ''}","${item.workflowStatus || ''}","${officerName}","${vDate}","${remarksText}"\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${title.toLowerCase().replace(/ /g, "_")}_report.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportApplicationsCSV(dataToExport, title);
   };
 
   const appsToFilter = filterStatus === 'PENDING' ? pendingApps : assignedApps;

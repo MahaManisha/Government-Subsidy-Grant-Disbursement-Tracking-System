@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { exportApplicationsCSV } from '../api/exportHelper';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useRole } from '../layouts/ProtectedLayout';
@@ -292,74 +293,40 @@ export default function FinanceOfficerDashboard() {
 
   const handleExport = (reportType) => {
     switch (reportType) {
-      case 'daily':
-        exportCSV('daily_disbursement', [
-          ['App No.', 'Beneficiary', 'Scheme', 'Amount', 'Status', 'Date'],
-          ...applications
-            .filter(a => a.workflowStatus === 'DISBURSED' && a.lastModifiedDate && new Date(a.lastModifiedDate).toDateString() === today)
-            .map(a => [
-              a.applicationNumber,
-              a.beneficiary?.name || `${a.beneficiary?.firstName || ''} ${a.beneficiary?.lastName || ''}`.trim(),
-              a.scheme?.name || '',
-              a.approvedAmount || 0,
-              a.workflowStatus,
-              fmtDate(a.lastModifiedDate),
-            ]),
-        ]);
+      case 'daily': {
+        const todayStr = new Date().toDateString();
+        const list = applications.filter(a => a.workflowStatus === 'DISBURSED' && a.lastModifiedDate && new Date(a.lastModifiedDate).toDateString() === todayStr);
+        exportApplicationsCSV(list, 'daily_disbursement_report');
         break;
-      case 'monthly':
-        exportCSV('monthly_finance', [
-          ['App No.', 'Beneficiary', 'Scheme', 'Amount', 'Status', 'Date'],
-          ...applications
-            .filter(a => {
-              if (!a.lastModifiedDate) return false;
-              const d = new Date(a.lastModifiedDate);
-              return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-            })
-            .map(a => [
-              a.applicationNumber,
-              a.beneficiary?.name || '',
-              a.scheme?.name || '',
-              a.approvedAmount || 0,
-              a.workflowStatus,
-              fmtDate(a.lastModifiedDate),
-            ]),
-        ]);
+      }
+      case 'monthly': {
+        const now = new Date();
+        const list = applications.filter(a => {
+          if (!a.lastModifiedDate) return false;
+          const d = new Date(a.lastModifiedDate);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        exportApplicationsCSV(list, 'monthly_finance_report');
         break;
-      case 'pending':
-        exportCSV('pending_payments', [
-          ['App No.', 'Beneficiary', 'Scheme', 'Requested Amount', 'Approved Amount', 'Status'],
-          ...financeQueue.map(a => [
-            a.applicationNumber,
-            a.beneficiary?.name || '',
-            a.scheme?.name || '',
-            a.requestedAmount || 0,
-            a.approvedAmount || 0,
-            a.workflowStatus,
-          ]),
-        ]);
+      }
+      case 'pending': {
+        const list = applications.filter(a => a.currentStage === 'FINANCE_REVIEW' || a.currentStage === 'FINANCE_REVIEW_PENDING');
+        exportApplicationsCSV(list, 'pending_finance_payments_report');
         break;
-      case 'failed':
-        exportCSV('failed_transactions', [
-          ['Plan ID', 'App No.', 'Status', 'Created'],
-          ...disbursements
-            .filter(d => d.status === 'CANCELLED' || d.status === 'FAILED')
-            .map(d => [d.id, d.applicationNumber, d.status, fmtDate(d.createdAt)]),
-        ]);
+      }
+      case 'failed': {
+        const list = applications.filter(a => a.workflowStatus === 'REJECTED' || a.workflowStatus === 'FINANCE_REJECTED' || a.workflowStatus === 'DISTRICT_REJECTED');
+        exportApplicationsCSV(list, 'failed_finance_transactions_report');
         break;
-      case 'utilization':
-        exportCSV('fund_utilization', [
-          ['App No.', 'Beneficiary', 'Scheme', 'Approved Amount', 'Status'],
-          ...financeApproved.map(a => [
-            a.applicationNumber,
-            a.beneficiary?.name || '',
-            a.scheme?.name || '',
-            a.approvedAmount || 0,
-            a.workflowStatus,
-          ]),
-        ]);
+      }
+      case 'utilization': {
+        const list = applications.filter(a => a.workflowStatus === 'APPROVED' || a.workflowStatus === 'DISBURSED' || a.workflowStatus === 'READY_FOR_DISBURSEMENT');
+        exportApplicationsCSV(list, 'fund_utilization_report');
         break;
-      default: break;
+      }
+      default:
+        exportApplicationsCSV(applications, 'finance_applications_report');
+        break;
     }
   };
 

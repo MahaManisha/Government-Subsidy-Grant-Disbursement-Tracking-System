@@ -65,4 +65,9 @@ public class ApplicationCreateDto {
             example = "Farmer requesting assistance for seed purchasing."
     )
     private String remarks;
+
+    @Schema(
+            description = "Uploaded documents for scheme eligibility validation"
+    )
+    private java.util.List<ApplicationDocumentUploadDto> documents;
 }

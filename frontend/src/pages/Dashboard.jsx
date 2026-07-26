@@ -929,21 +929,11 @@ function AdminDashboard() {
           name: name.split(' ')[0],
           count: Number(count)
         }))
-      : [
-          { name: 'PM-KISAN', count: 1240 },
-          { name: 'PAHAL', count: 850 },
-          { name: 'PMFBY', count: 640 },
-          { name: 'SOLAR', count: 430 }
-        ];
+      : [];
 
-  const disbursementTrend = [
-    { month: 'Jan', released: 125000, target: 150000 },
-    { month: 'Feb', released: 182000, target: 150000 },
-    { month: 'Mar', released: totalFundsReleased * 0.4 || 224000, target: 200000 },
-    { month: 'Apr', released: totalFundsReleased * 0.3 || 191000, target: 200000 },
-    { month: 'May', released: totalFundsReleased * 0.2 || 258000, target: 250000 },
-    { month: 'Jun', released: totalFundsReleased || 314000, target: 250000 }
-  ];
+  const disbursementTrend = totalFundsReleased > 0 ? [
+    { month: 'Current Period', released: totalFundsReleased, target: totalFundsReleased }
+  ] : [];
 
   return (
     <div className="space-y-8">

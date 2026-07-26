@@ -254,4 +254,12 @@ public class ApplicationController {
         java.util.List<ApplicationDto> result = applicationService.getAllApplications();
         return ResponseEntity.ok(BaseResponse.success(result, "Applications retrieved successfully"));
     }
+
+    @GetMapping("/my")
+    @Operation(summary = "Get applications for currently logged-in beneficiary", description = "Retrieves all applications belonging to the authenticated beneficiary.")
+    @PreAuthorize("hasAnyRole('BENEFICIARY', 'ADMIN')")
+    public ResponseEntity<BaseResponse<java.util.List<ApplicationDto>>> getMyApplications() {
+        java.util.List<ApplicationDto> result = applicationService.getMyApplications();
+        return ResponseEntity.ok(BaseResponse.success(result, "My applications retrieved successfully"));
+    }
 }

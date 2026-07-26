@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, CheckCircle, Clock, Upload, AlertCircle } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast, ToastContainer } from 'react-toastify';
@@ -21,11 +21,14 @@ export default function ApplicationForm() {
   const [schemes, setSchemes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedSchemeId, setSelectedSchemeId] = useState(preSelectedSchemeId);
+  const [uploadedFiles, setUploadedFiles] = useState({});
 
   const {
     register,
     setValue,
     handleSubmit,
+    watch,
     formState: { errors }
   } = useForm({
     defaultValues: {
@@ -36,6 +39,45 @@ export default function ApplicationForm() {
       remarks: ''
     }
   });
+
+  const watchedSchemeId = watch('schemeId');
+
+  useEffect(() => {
+    if (watchedSchemeId) {
+      setSelectedSchemeId(watchedSchemeId);
+    }
+  }, [watchedSchemeId]);
+
+  const selectedScheme = schemes.find((s) => String(s.id) === String(selectedSchemeId));
+
+  const getRequiredDocumentsList = () => {
+    if (!selectedScheme) return [];
+    if (selectedScheme.requiredDocuments && selectedScheme.requiredDocuments.trim().length > 0) {
+      return selectedScheme.requiredDocuments
+        .split(',')
+        .map((doc) => doc.trim())
+        .filter((doc) => doc.length > 0);
+    }
+    return ['Aadhaar Card', 'Income Certificate', 'Residence Certificate', 'Bank Passbook'];
+  };
+
+  const requiredDocList = getRequiredDocumentsList();
+
+  const handleFileChange = (docName, file) => {
+    if (file) {
+      setUploadedFiles((prev) => ({
+        ...prev,
+        [docName]: {
+          file,
+          fileName: file.name,
+          fileSize: file.size,
+          contentType: file.type || 'application/pdf',
+          status: 'Uploaded'
+        }
+      }));
+      toast.success(`${docName} attached successfully.`);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -79,15 +121,30 @@ export default function ApplicationForm() {
   }, [activeRole]);
 
   const onSubmit = async (data) => {
+    // Validation check for mandatory required documents
+    for (const reqDoc of requiredDocList) {
+      if (!uploadedFiles[reqDoc] || uploadedFiles[reqDoc].status !== 'Uploaded') {
+        toast.error(`Please upload ${reqDoc}.`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     
-    // Construct payload containing only valid Spring Boot ApplicationCreateDto fields
+    // Construct payload containing document records for backend persistence
     const backendPayload = {
       beneficiaryId: Number(data.beneficiaryId),
       schemeId: Number(data.schemeId),
       requestedAmount: Number(data.requestedAmount),
       priorityTier: data.priority,
-      remarks: data.remarks
+      remarks: data.remarks,
+      documents: Object.entries(uploadedFiles).map(([docType, info]) => ({
+        documentType: docType,
+        originalFileName: info.fileName,
+        storagePath: `uploads/documents/${docType.replace(/\s+/g, '_')}_${info.fileName}`,
+        fileSize: info.fileSize,
+        contentType: info.contentType
+      }))
     };
 
     try {
@@ -126,10 +183,11 @@ export default function ApplicationForm() {
         }, 1500);
       }
     } catch (err) {
-      if (err.validationErrors) {
+      if (err.validationErrors && err.validationErrors.length > 0) {
         err.validationErrors.forEach((error) => toast.error(error));
       } else {
-        toast.error(err.message || 'Failed to submit application.');
+        const serverMsg = err.response?.data?.data?.message || err.response?.data?.message || err.message || 'Failed to submit application.';
+        toast.error(serverMsg);
       }
     } finally {
       setSubmitting(false);
@@ -275,6 +333,70 @@ export default function ApplicationForm() {
                 className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-govBlue leading-relaxed"
               />
             </div>
+
+            {/* Required Documents Section */}
+            {selectedScheme && (
+              <div className="sm:col-span-2 space-y-4 border-t border-slate-100 pt-5 mt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                      <FileCheck className="h-4.5 w-4.5 text-blue-600" />
+                      <span>Required Documents</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      All documents configured for <strong className="text-slate-700">{selectedScheme.name}</strong> must be uploaded before submitting.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full">
+                    {Object.keys(uploadedFiles).filter(k => requiredDocList.includes(k)).length} / {requiredDocList.length} Uploaded
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {requiredDocList.map((docName) => {
+                    const isUploaded = uploadedFiles[docName] && uploadedFiles[docName].status === 'Uploaded';
+                    const fileInfo = uploadedFiles[docName];
+                    return (
+                      <div key={docName} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-200 transition-all">
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold text-slate-800 block">{docName}</span>
+                          {isUploaded ? (
+                            <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              <span>✓ Uploaded ({fileInfo.fileName})</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-amber-600 font-medium flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>Pending</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+                          isUploaded
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}>
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>{isUploaded ? 'Replace' : 'Choose File'}</span>
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                handleFileChange(docName, e.target.files[0]);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Buttons */}

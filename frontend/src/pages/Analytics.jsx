@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { exportApplicationsCSV } from '../api/exportHelper';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -128,43 +129,8 @@ export default function Analytics() {
 
   // ── CSV Export — only real database records, no hardcoded values ──────────
   const handleExportCSV = () => {
-    if (!report && applications.length === 0) {
-      toast.warn('No data available for export.');
-      return;
-    }
-
-    const rows = [
-      ['Metric', 'Value'],
-      ['Total Beneficiaries', report?.totalBeneficiaries ?? 0],
-      ['Total Applications', totalApplications],
-      ['Total Approved', approvedCount],
-      ['Total Rejected', rejectedCount],
-      ['Total Disbursed', disbursedCount],
-      ['Total Pending', pendingCount],
-      ['Total Funds Released (INR)', report?.totalFundsReleased ?? 0],
-      ['Average Eligibility Score', report?.averageEligibilityScore != null ? Number(report.averageEligibilityScore).toFixed(2) : 0],
-      ['Pending Verification Count', report?.pendingVerificationCount ?? 0],
-      ['Approval Rate (%)', report?.approvalPercentage != null ? Number(report.approvalPercentage).toFixed(2) : 0],
-      ['Rejection Rate (%)', report?.rejectionPercentage != null ? Number(report.rejectionPercentage).toFixed(2) : 0],
-      ['Compliance Rate (%)', report?.compliancePercentage != null ? Number(report.compliancePercentage).toFixed(2) : 0],
-      ['Most Popular Scheme', report?.mostPopularScheme && report.mostPopularScheme !== 'N/A' ? report.mostPopularScheme : 'No data'],
-      ['Highest Fund Utilization District', report?.highestFundUtilizationDistrict && report.highestFundUtilizationDistrict !== 'N/A' ? report.highestFundUtilizationDistrict : 'No data'],
-      [],
-      ['--- District Fund Distribution ---'],
-      ...districtChartData.map(d => [`District: ${d.name}`, `₹${d.amount.toLocaleString('en-IN')}`]),
-      [],
-      ['--- Scheme Application Volumes ---'],
-      ...schemeChartData.map(d => [`Scheme: ${d.fullName}`, d.count])
-    ];
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(r => r.join(',')).join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `analytics_report_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Analytics CSV exported successfully.');
+    exportApplicationsCSV(applications, 'analytics_applications_report');
+    toast.success('Analytics report CSV exported successfully.');
   };
 
   const handlePrintReport = () => { window.print(); };

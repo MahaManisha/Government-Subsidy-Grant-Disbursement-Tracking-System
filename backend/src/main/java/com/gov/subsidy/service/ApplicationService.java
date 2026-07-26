@@ -47,4 +47,11 @@ public interface ApplicationService {
      * @return list of all applications mapped to DTOs
      */
     java.util.List<ApplicationDto> getAllApplications();
+
+    /**
+     * Retrieves all applications belonging to the currently authenticated beneficiary.
+     *
+     * @return list of applications belonging to the logged-in beneficiary
+     */
+    java.util.List<ApplicationDto> getMyApplications();
 }

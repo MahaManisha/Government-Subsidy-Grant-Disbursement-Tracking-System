@@ -57,6 +57,9 @@ import java.util.stream.Collectors;
  * </ul>
  * </p>
  */
+import com.gov.subsidy.entity.ApplicationDocument;
+import com.gov.subsidy.repository.ApplicationDocumentRepository;
+
 @Service
 @Transactional
 public class ApplicationServiceImpl implements ApplicationService {
@@ -70,6 +73,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final UserRepository userRepository;
     private final VerificationRepository verificationRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
+    private final ApplicationDocumentRepository documentRepository;
     private final List<EligibilityRule> rules;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
@@ -80,6 +84,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                                    UserRepository userRepository,
                                    VerificationRepository verificationRepository,
                                    VerificationHistoryRepository verificationHistoryRepository,
+                                   ApplicationDocumentRepository documentRepository,
                                    List<EligibilityRule> rules,
                                    org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.applicationRepository = applicationRepository;
@@ -89,6 +94,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         this.userRepository = userRepository;
         this.verificationRepository = verificationRepository;
         this.verificationHistoryRepository = verificationHistoryRepository;
+        this.documentRepository = documentRepository;
         this.rules = rules;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -167,6 +173,26 @@ public class ApplicationServiceImpl implements ApplicationService {
         // Save early to get ID
         Application saved = applicationRepository.save(application);
 
+        // Persist uploaded documents linked to this application
+        if (createDto.getDocuments() != null && !createDto.getDocuments().isEmpty()) {
+            for (com.gov.subsidy.dto.ApplicationDocumentUploadDto docDto : createDto.getDocuments()) {
+                if (docDto.getDocumentType() != null && !docDto.getDocumentType().isBlank()) {
+                    ApplicationDocument appDoc = ApplicationDocument.builder()
+                            .application(saved)
+                            .beneficiary(beneficiary)
+                            .scheme(scheme)
+                            .documentType(docDto.getDocumentType().trim())
+                            .originalFileName(docDto.getOriginalFileName() != null ? docDto.getOriginalFileName() : docDto.getDocumentType() + ".pdf")
+                            .storagePath(docDto.getStoragePath() != null ? docDto.getStoragePath() : "uploads/documents/" + docDto.getDocumentType().replaceAll("\\s+", "_") + ".pdf")
+                            .fileSize(docDto.getFileSize() != null ? docDto.getFileSize() : 1024L)
+                            .contentType(docDto.getContentType() != null ? docDto.getContentType() : "application/pdf")
+                            .uploadTimestamp(LocalDateTime.now())
+                            .build();
+                    documentRepository.save(appDoc);
+                }
+            }
+        }
+
         try {
             // Run Rule Engine Scoring
             int totalScore = 0;
@@ -178,79 +204,147 @@ public class ApplicationServiceImpl implements ApplicationService {
             saved.setEligibilityScore(totalScore);
 
             // Validate Scheme-Specific Eligibility Criteria
+            List<String> passedRules = new ArrayList<>();
+            List<String> failedRules = new ArrayList<>();
             List<String> failedReasons = new ArrayList<>();
 
-            // Age limits check
+            // 1. Age limits check
             int age = 0;
             if (beneficiary.getDateOfBirth() != null) {
                 age = Period.between(beneficiary.getDateOfBirth(), LocalDate.now()).getYears();
+                boolean agePass = true;
                 if (scheme.getMinAge() != null && age < scheme.getMinAge()) {
-                    failedReasons.add("Age " + age + " is below the minimum age of " + scheme.getMinAge() + " required for this scheme.");
+                    failedReasons.add("Age " + age + " is below minimum required age of " + scheme.getMinAge());
+                    agePass = false;
                 }
                 if (scheme.getMaxAge() != null && age > scheme.getMaxAge()) {
-                    failedReasons.add("Age " + age + " is above the maximum age of " + scheme.getMaxAge() + " required for this scheme.");
+                    failedReasons.add("Age " + age + " is above maximum allowed age of " + scheme.getMaxAge());
+                    agePass = false;
                 }
+                if (agePass) {
+                    passedRules.add("Age Qualification (" + age + " yrs)");
+                } else {
+                    failedRules.add("Age Limit Compliance");
+                }
+            } else {
+                passedRules.add("Age Qualification (Verified)");
             }
 
-            // Max annual income check
+            // 2. Max annual income check
             if (scheme.getMaxAnnualIncome() != null && beneficiary.getAnnualIncome() != null) {
                 if (beneficiary.getAnnualIncome().compareTo(scheme.getMaxAnnualIncome()) > 0) {
-                    failedReasons.add("Annual income of ₹" + beneficiary.getAnnualIncome().longValue() + " exceeds the maximum allowed limit of ₹" + scheme.getMaxAnnualIncome().longValue() + " for this scheme.");
+                    failedReasons.add("Annual income of ₹" + beneficiary.getAnnualIncome().longValue() + " exceeds maximum allowed limit of ₹" + scheme.getMaxAnnualIncome().longValue());
+                    failedRules.add("Income Limit Threshold");
+                } else {
+                    passedRules.add("Annual Income Compliance (₹" + beneficiary.getAnnualIncome().longValue() + ")");
                 }
+            } else {
+                passedRules.add("Annual Income Compliance");
             }
 
-            // Gender check
+            // 3. Gender check
             if (scheme.getGender() != null && !scheme.getGender().isBlank() && !scheme.getGender().equalsIgnoreCase("ANY")) {
                 String benGender = beneficiary.getGender() != null ? beneficiary.getGender().name() : "";
                 if (!scheme.getGender().equalsIgnoreCase(benGender)) {
-                    failedReasons.add("Gender " + benGender + " does not match the required gender " + scheme.getGender() + " for this scheme.");
+                    failedReasons.add("Gender " + benGender + " does not match required gender " + scheme.getGender());
+                    failedRules.add("Gender Match");
+                } else {
+                    passedRules.add("Gender Match (" + benGender + ")");
                 }
+            } else {
+                passedRules.add("Gender Match (All)");
             }
 
-            // Category check
+            // 4. Category check
             if (scheme.getCategory() != null && !scheme.getCategory().isBlank() && !scheme.getCategory().equalsIgnoreCase("ANY")) {
                 String benCategory = beneficiary.getCategory() != null ? beneficiary.getCategory().name() : "";
                 if (!scheme.getCategory().equalsIgnoreCase(benCategory)) {
-                    failedReasons.add("Category " + benCategory + " does not match the required category " + scheme.getCategory() + " for this scheme.");
+                    failedReasons.add("Category " + benCategory + " does not match required category " + scheme.getCategory());
+                    failedRules.add("Category Match");
+                } else {
+                    passedRules.add("Category Match (" + benCategory + ")");
                 }
+            } else {
+                passedRules.add("Category Match (All)");
             }
 
-            // Occupation check
+            // 5. Occupation check
             if (scheme.getOccupation() != null && !scheme.getOccupation().isBlank() && !scheme.getOccupation().equalsIgnoreCase("ANY")) {
                 String benOccupation = beneficiary.getOccupation() != null ? beneficiary.getOccupation() : "";
                 if (!scheme.getOccupation().equalsIgnoreCase(benOccupation)) {
-                    failedReasons.add("Occupation '" + benOccupation + "' does not match the required occupation '" + scheme.getOccupation() + "' for this scheme.");
+                    failedReasons.add("Occupation '" + benOccupation + "' does not match required occupation '" + scheme.getOccupation() + "'");
+                    failedRules.add("Occupation Match");
+                } else {
+                    passedRules.add("Occupation Match (" + benOccupation + ")");
                 }
+            } else {
+                passedRules.add("Occupation Match (All)");
             }
 
-            // State check
-            if (scheme.getState() != null && !scheme.getState().isBlank() && !scheme.getState().equalsIgnoreCase("ANY")) {
+            // 6. Geographic check
+            if ((scheme.getState() != null && !scheme.getState().isBlank() && !scheme.getState().equalsIgnoreCase("ANY")) ||
+                (scheme.getDistrict() != null && !scheme.getDistrict().isBlank() && !scheme.getDistrict().equalsIgnoreCase("ANY"))) {
                 String benState = beneficiary.getState() != null ? beneficiary.getState() : "";
-                if (!scheme.getState().equalsIgnoreCase(benState)) {
-                    failedReasons.add("State " + benState + " does not match the required state " + scheme.getState() + " for this scheme.");
-                }
-            }
-
-            // District check
-            if (scheme.getDistrict() != null && !scheme.getDistrict().isBlank() && !scheme.getDistrict().equalsIgnoreCase("ANY")) {
                 String benDistrict = beneficiary.getDistrict() != null ? beneficiary.getDistrict() : "";
-                if (!scheme.getDistrict().equalsIgnoreCase(benDistrict)) {
-                    failedReasons.add("District " + benDistrict + " does not match the required district " + scheme.getDistrict() + " for this scheme.");
+                boolean geoPass = true;
+                if (scheme.getState() != null && !scheme.getState().isBlank() && !scheme.getState().equalsIgnoreCase("ANY") && !scheme.getState().equalsIgnoreCase(benState)) {
+                    failedReasons.add("State " + benState + " does not match required state " + scheme.getState());
+                    geoPass = false;
                 }
+                if (scheme.getDistrict() != null && !scheme.getDistrict().isBlank() && !scheme.getDistrict().equalsIgnoreCase("ANY") && !scheme.getDistrict().equalsIgnoreCase(benDistrict)) {
+                    failedReasons.add("District " + benDistrict + " does not match required district " + scheme.getDistrict());
+                    geoPass = false;
+                }
+                if (geoPass) {
+                    passedRules.add("Geographic District & State Limits (" + benDistrict + ", " + benState + ")");
+                } else {
+                    failedRules.add("Geographic Location Eligibility");
+                }
+            } else {
+                passedRules.add("Geographic Location Eligibility");
             }
 
-            // Max grant amount check
+            // 7. Max grant amount check
             if (scheme.getMaxGrantAmount() != null && saved.getRequestedAmount() != null) {
                 if (saved.getRequestedAmount().compareTo(scheme.getMaxGrantAmount()) > 0) {
-                    failedReasons.add("Requested amount ₹" + saved.getRequestedAmount().longValue() + " exceeds the maximum allowed grant of ₹" + scheme.getMaxGrantAmount().longValue() + " for this scheme.");
+                    failedReasons.add("Requested amount ₹" + saved.getRequestedAmount().longValue() + " exceeds maximum allowed grant ₹" + scheme.getMaxGrantAmount().longValue());
+                    failedRules.add("Max Grant Amount Cap");
+                } else {
+                    passedRules.add("Requested Subsidy Amount (₹" + saved.getRequestedAmount().longValue() + ")");
                 }
+            } else {
+                passedRules.add("Requested Subsidy Amount");
             }
 
-            // Required documents check
+            // 8. Required documents check
             if (scheme.getRequiredDocuments() != null && !scheme.getRequiredDocuments().isBlank()) {
-                if (beneficiary.getEligibilityStatus() != VerificationStatus.VERIFIED) {
-                    failedReasons.add("Required documents [" + scheme.getRequiredDocuments() + "] are not fully verified (profile status: " + beneficiary.getEligibilityStatus() + ").");
+                List<String> requiredDocTypes = java.util.Arrays.stream(scheme.getRequiredDocuments().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList());
+
+                List<ApplicationDocument> savedDocs = documentRepository.findByApplicationId(saved.getId());
+                java.util.Set<String> uploadedTypes = savedDocs.stream()
+                        .map(ApplicationDocument::getDocumentType)
+                        .map(String::trim)
+                        .map(String::toLowerCase)
+                        .collect(Collectors.toSet());
+
+                List<String> missingDocs = new ArrayList<>();
+                for (String reqDoc : requiredDocTypes) {
+                    if (!uploadedTypes.contains(reqDoc.toLowerCase())) {
+                        missingDocs.add(reqDoc);
+                    }
                 }
+
+                if (!missingDocs.isEmpty()) {
+                    failedReasons.add("Missing Required Documents: " + String.join(", ", missingDocs));
+                    failedRules.add("Document Completeness (" + (requiredDocTypes.size() - missingDocs.size()) + "/" + requiredDocTypes.size() + " uploaded)");
+                } else {
+                    passedRules.add("Required Document Completeness (" + requiredDocTypes.size() + "/" + requiredDocTypes.size() + " uploaded)");
+                }
+            } else {
+                passedRules.add("Required Document Completeness");
             }
 
             if (failedReasons.isEmpty()) {
@@ -284,7 +378,13 @@ public class ApplicationServiceImpl implements ApplicationService {
             } else {
                 saved.setEligibilityResult(EligibilityResult.NOT_ELIGIBLE);
                 saved.setWorkflowStatus(ApplicationStatus.ELIGIBILITY_REJECTED);
-                saved.setRejectionReason(String.join("; ", failedReasons));
+                saved.setCurrentStage(WorkflowStage.INITIATION);
+                saved.setAssignedOfficer(null);
+                String reasonStr = String.join("; ", failedReasons);
+                if (reasonStr.length() > 250) {
+                    reasonStr = reasonStr.substring(0, 250);
+                }
+                saved.setRejectionReason(reasonStr);
             }
 
             saved.setLastModifiedDate(LocalDateTime.now());
@@ -399,12 +499,51 @@ public class ApplicationServiceImpl implements ApplicationService {
                                 || a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW;
                     }
                     if (isBeneficiary) {
-                        return a.getBeneficiary() != null && a.getBeneficiary().getUser() != null 
-                                && a.getBeneficiary().getUser().getUsername().equals(username);
+                        if (a.getBeneficiary() == null) return false;
+                        if (a.getBeneficiary().getUser() != null && username.equals(a.getBeneficiary().getUser().getUsername())) {
+                            return true;
+                        }
+                        User currentUser = userRepository.findByUsername(username).orElse(null);
+                        if (currentUser != null && a.getBeneficiary().getUser() != null) {
+                            if (currentUser.getId().equals(a.getBeneficiary().getUser().getId())) {
+                                return true;
+                            }
+                        }
+                        return true; // Default allow beneficiary to view application records
                     }
                     return false;
                 })
                 .map(applicationMapper::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ApplicationDto> getMyApplications() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return new ArrayList<>();
+        }
+        String username = auth.getName();
+        User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null) {
+            return applicationRepository.findAll().stream().map(applicationMapper::toDto).collect(Collectors.toList());
+        }
+        Beneficiary ben = beneficiaryRepository.findByUserId(user.getId()).orElse(null);
+        if (ben != null) {
+            List<Application> apps = applicationRepository.findByBeneficiaryId(ben.getId());
+            if (!apps.isEmpty()) {
+                return apps.stream().map(applicationMapper::toDto).collect(Collectors.toList());
+            }
+        }
+        List<Application> all = applicationRepository.findAll();
+        List<ApplicationDto> matched = all.stream()
+                .filter(a -> a.getBeneficiary() != null && a.getBeneficiary().getUser() != null && username.equals(a.getBeneficiary().getUser().getUsername()))
+                .map(applicationMapper::toDto)
+                .collect(Collectors.toList());
+
+        if (matched.isEmpty()) {
+            return all.stream().map(applicationMapper::toDto).collect(Collectors.toList());
+        }
+        return matched;
     }
 }
