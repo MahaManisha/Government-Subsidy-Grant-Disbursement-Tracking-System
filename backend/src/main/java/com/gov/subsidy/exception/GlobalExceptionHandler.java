@@ -92,7 +92,7 @@ public class GlobalExceptionHandler {
                 .build();
         BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
                 .success(false)
-                .message("Duplicate resource conflict")
+                .message(ex.getMessage())
                 .data(details)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);

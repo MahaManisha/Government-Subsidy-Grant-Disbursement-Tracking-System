@@ -40,17 +40,24 @@ axiosInstance.interceptors.response.use(
     }
     
     // Distinguish HTTP server response errors from true network connection failures
-    const rawServerMessage = error.response?.data?.message || 
-                             error.response?.data?.data?.message;
+    const detailedMessage = error.response?.data?.data?.message;
+    const topMessage = error.response?.data?.message;
+    const validationMsgs = error.response?.data?.data?.validationErrors || error.response?.data?.validationErrors;
+    const validationStr = (validationMsgs && validationMsgs.length > 0) ? validationMsgs.join('; ') : null;
 
-    // Filter out generic fallback strings from backend
-    const serverMessage = (rawServerMessage && rawServerMessage !== 'An unexpected error occurred') 
-      ? rawServerMessage 
-      : null;
+    let serverMessage = validationStr;
+    if (!serverMessage && detailedMessage && detailedMessage !== 'An unexpected error occurred' && detailedMessage !== 'Duplicate resource conflict') {
+      serverMessage = detailedMessage;
+    }
+    if (!serverMessage && topMessage && topMessage !== 'An unexpected error occurred') {
+      serverMessage = topMessage;
+    }
 
     let formattedMessage;
     if (!error.response) {
       formattedMessage = 'Network error. Please check the backend connection.';
+    } else if (status === 400) {
+      formattedMessage = serverMessage || 'Invalid request payload. Please check your entries.';
     } else if (status === 401) {
       formattedMessage = 'Session expired. Please login again.';
     } else if (status === 403) {
@@ -58,9 +65,9 @@ axiosInstance.interceptors.response.use(
     } else if (status === 404) {
       formattedMessage = serverMessage || 'Requested resource was not found.';
     } else if (status === 409) {
-      formattedMessage = serverMessage || 'Cannot delete this scheme because it is associated with existing beneficiary applications. Deactivate the scheme instead.';
+      formattedMessage = serverMessage || 'Conflict error: duplicate record already exists.';
     } else if (status === 500) {
-      formattedMessage = serverMessage || 'Unable to load the requested information.';
+      formattedMessage = serverMessage || 'Internal server error occurred.';
     } else {
       formattedMessage = serverMessage || `Server error (HTTP ${status})`;
     }

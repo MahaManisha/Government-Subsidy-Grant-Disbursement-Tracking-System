@@ -143,4 +143,39 @@ public class AuthRegistrationServiceTest {
         assertEquals("A beneficiary with Aadhaar number '987654321012' already exists.", exception.getMessage());
         verify(userRepository, never()).save(any());
     }
+
+    @Test
+    public void testRegisterBeneficiary_NullAddress_AssemblesAddressFromSeparateFields() {
+        registerDto.setAddress(null);
+        registerDto.setHouseNo("12B");
+        registerDto.setStreet("MG Road");
+        registerDto.setCity("Chennai");
+        registerDto.setDistrict("Chennai");
+        registerDto.setState("Tamil Nadu");
+        registerDto.setPinCode("600001");
+
+        when(userRepository.existsByUsername(registerDto.getUsername())).thenReturn(false);
+        when(userRepository.existsByEmail(registerDto.getEmail())).thenReturn(false);
+        when(beneficiaryRepository.existsByUniqueIdNumber(registerDto.getAadhaarNumber())).thenReturn(false);
+        when(beneficiaryRepository.existsByPhoneNumber(registerDto.getMobileNumber())).thenReturn(false);
+        when(beneficiaryRepository.existsByBankAccountNumber(registerDto.getBankAccountNumber())).thenReturn(false);
+        when(roleRepository.findByName(RoleType.ROLE_BENEFICIARY)).thenReturn(Optional.of(beneficiaryRole));
+        when(passwordEncoder.encode(registerDto.getPassword())).thenReturn("encryptedPassword");
+
+        User mockUser = User.builder().id(10L).username("rajesh_kumar").build();
+        when(userRepository.save(any(User.class))).thenReturn(mockUser);
+
+        Beneficiary mockBeneficiary = Beneficiary.builder().id(20L).user(mockUser).uniqueIdNumber("987654321012").build();
+        when(beneficiaryRepository.save(any(Beneficiary.class))).thenReturn(mockBeneficiary);
+
+        BeneficiaryDto mockDto = BeneficiaryDto.builder().id(20L).uniqueIdNumber("987654321012").build();
+        when(beneficiaryMapper.toDto(any(Beneficiary.class))).thenReturn(mockDto);
+
+        BeneficiaryDto result = registrationService.registerBeneficiary(registerDto);
+
+        assertNotNull(result);
+        verify(beneficiaryRepository).save(argThat(beneficiary ->
+                "12B, MG Road, Chennai, Chennai, Tamil Nadu - 600001".equals(beneficiary.getAddress())
+        ));
+    }
 }

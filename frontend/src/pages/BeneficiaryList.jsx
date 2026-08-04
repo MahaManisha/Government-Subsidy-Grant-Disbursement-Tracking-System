@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, Plus, Filter, UserCheck, ShieldAlert, Trash2, Edit3, Eye, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Search, Plus, Filter, UserCheck, ShieldAlert, Trash2, Edit3, Eye, AlertTriangle, X, Loader2, CheckCircle2, XCircle, MessageSquare, Clock } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast, ToastContainer } from 'react-toastify';
@@ -17,6 +17,13 @@ export default function BeneficiaryList() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // Modal states for Approval Workflow
+  const [confirmApproveBen, setConfirmApproveBen] = useState(null);
+  const [confirmRejectBen, setConfirmRejectBen] = useState(null);
+  const [confirmRequestChangesBen, setConfirmRequestChangesBen] = useState(null);
+  const [approvalRemarks, setApprovalRemarks] = useState('');
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
   // Fetch all beneficiaries
   const fetchBeneficiaries = async () => {
@@ -78,6 +85,80 @@ export default function BeneficiaryList() {
       setConfirmDeleteBen(null);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleApproveConfirmed = async () => {
+    if (!confirmApproveBen) return;
+    setActionSubmitting(true);
+    try {
+      const response = await axiosInstance.put(`/v1/beneficiaries/${confirmApproveBen.id}/approve`, {
+        remarks: approvalRemarks
+      });
+      if (response.data && response.data.success) {
+        toast.success(`Beneficiary "${confirmApproveBen.name}" approved successfully!`);
+        setBeneficiaries(prev => prev.map(b => b.id === confirmApproveBen.id ? { ...b, eligibilityStatus: 'VERIFIED', approvalRemarks } : b));
+        setConfirmApproveBen(null);
+        setApprovalRemarks('');
+      } else {
+        toast.error(response.data?.message || 'Failed to approve beneficiary.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve beneficiary.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleRejectConfirmed = async () => {
+    if (!confirmRejectBen) return;
+    if (!approvalRemarks.trim()) {
+      toast.error('Rejection reason is required.');
+      return;
+    }
+    setActionSubmitting(true);
+    try {
+      const response = await axiosInstance.put(`/v1/beneficiaries/${confirmRejectBen.id}/reject`, {
+        reason: approvalRemarks
+      });
+      if (response.data && response.data.success) {
+        toast.success(`Beneficiary "${confirmRejectBen.name}" rejected.`);
+        setBeneficiaries(prev => prev.map(b => b.id === confirmRejectBen.id ? { ...b, eligibilityStatus: 'REJECTED', rejectionReason: approvalRemarks } : b));
+        setConfirmRejectBen(null);
+        setApprovalRemarks('');
+      } else {
+        toast.error(response.data?.message || 'Failed to reject beneficiary.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject beneficiary.');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleRequestChangesConfirmed = async () => {
+    if (!confirmRequestChangesBen) return;
+    if (!approvalRemarks.trim()) {
+      toast.error('Remarks detailing requested changes are required.');
+      return;
+    }
+    setActionSubmitting(true);
+    try {
+      const response = await axiosInstance.put(`/v1/beneficiaries/${confirmRequestChangesBen.id}/request-changes`, {
+        remarks: approvalRemarks
+      });
+      if (response.data && response.data.success) {
+        toast.success(`Changes requested for "${confirmRequestChangesBen.name}".`);
+        setBeneficiaries(prev => prev.map(b => b.id === confirmRequestChangesBen.id ? { ...b, eligibilityStatus: 'CHANGES_REQUIRED', approvalRemarks } : b));
+        setConfirmRequestChangesBen(null);
+        setApprovalRemarks('');
+      } else {
+        toast.error(response.data?.message || 'Failed to request changes.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to request changes.');
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
@@ -219,19 +300,60 @@ export default function BeneficiaryList() {
                           <span
                             className={`inline-flex items-center space-x-1 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
                               b.eligibilityStatus === 'VERIFIED'
-                                ? 'bg-emerald-50 text-emerald-700'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : b.eligibilityStatus === 'PENDING'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-rose-50 text-rose-700'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : b.eligibilityStatus === 'CHANGES_REQUIRED'
+                                ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
                             }`}
                           >
                             {b.eligibilityStatus === 'VERIFIED' && <UserCheck className="h-3 w-3 mr-1" />}
+                            {b.eligibilityStatus === 'PENDING' && <Clock className="h-3 w-3 mr-1" />}
+                            {b.eligibilityStatus === 'CHANGES_REQUIRED' && <MessageSquare className="h-3 w-3 mr-1" />}
                             {b.eligibilityStatus === 'REJECTED' && <ShieldAlert className="h-3 w-3 mr-1" />}
-                            <span>{b.eligibilityStatus}</span>
+                            <span>{b.eligibilityStatus === 'CHANGES_REQUIRED' ? 'CHANGES REQ' : b.eligibilityStatus}</span>
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end space-x-2">
+                          <div className="flex items-center justify-end space-x-1">
+                            {(b.eligibilityStatus === 'PENDING' || b.eligibilityStatus === 'CHANGES_REQUIRED') && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setConfirmApproveBen({ id: b.id, name });
+                                    setApprovalRemarks('');
+                                  }}
+                                  className="rounded-lg p-1.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 font-medium text-xs flex items-center gap-1 transition-all"
+                                  title="Approve Beneficiary"
+                                >
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span className="hidden xl:inline">Approve</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setConfirmRejectBen({ id: b.id, name });
+                                    setApprovalRemarks('');
+                                  }}
+                                  className="rounded-lg p-1.5 text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 font-medium text-xs flex items-center gap-1 transition-all"
+                                  title="Reject Beneficiary"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  <span className="hidden xl:inline">Reject</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setConfirmRequestChangesBen({ id: b.id, name });
+                                    setApprovalRemarks('');
+                                  }}
+                                  className="rounded-lg p-1.5 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:text-amber-800 font-medium text-xs flex items-center gap-1 transition-all"
+                                  title="Request Changes"
+                                >
+                                  <MessageSquare className="h-4 w-4" />
+                                  <span className="hidden xl:inline">Req Changes</span>
+                                </button>
+                              </>
+                            )}
                             <Link
                               to={`/beneficiaries/${b.id}`}
                               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all"
@@ -343,6 +465,159 @@ export default function BeneficiaryList() {
               >
                 {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                 Delete Beneficiary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Confirmation Modal */}
+      {confirmApproveBen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 text-emerald-600">
+                <CheckCircle2 className="h-6 w-6" />
+                <h3 className="text-lg font-bold text-slate-800">Approve Beneficiary Profile?</h3>
+              </div>
+              <button
+                onClick={() => setConfirmApproveBen(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to approve <strong className="text-slate-800">"{confirmApproveBen.name}"</strong>? This will set their eligibility status to <span className="font-bold text-emerald-600">VERIFIED</span> and enable scheme applications.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Approval Remarks (Optional)</label>
+              <textarea
+                value={approvalRemarks}
+                onChange={(e) => setApprovalRemarks(e.target.value)}
+                placeholder="Add optional notes or remarks for beneficiary..."
+                rows={2}
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmApproveBen(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApproveConfirmed}
+                disabled={actionSubmitting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {actionSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Approve Beneficiary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Modal */}
+      {confirmRejectBen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 text-rose-600">
+                <XCircle className="h-6 w-6" />
+                <h3 className="text-lg font-bold text-slate-800">Reject Beneficiary Registration?</h3>
+              </div>
+              <button
+                onClick={() => setConfirmRejectBen(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Rejecting <strong className="text-slate-800">"{confirmRejectBen.name}"</strong> will mark their status as <span className="font-bold text-rose-600">REJECTED</span>. Please enter the reason for rejection.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Rejection Reason (Required)</label>
+              <textarea
+                value={approvalRemarks}
+                onChange={(e) => setApprovalRemarks(e.target.value)}
+                placeholder="State the explicit reason for rejection..."
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmRejectBen(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectConfirmed}
+                disabled={actionSubmitting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg shadow-rose-600/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {actionSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                Reject Beneficiary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Changes Modal */}
+      {confirmRequestChangesBen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 text-amber-600">
+                <MessageSquare className="h-6 w-6" />
+                <h3 className="text-lg font-bold text-slate-800">Request Profile Changes?</h3>
+              </div>
+              <button
+                onClick={() => setConfirmRequestChangesBen(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Request changes for <strong className="text-slate-800">"{confirmRequestChangesBen.name}"</strong>. The beneficiary will be allowed to update their profile and resubmit.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Requested Changes Remarks (Required)</label>
+              <textarea
+                value={approvalRemarks}
+                onChange={(e) => setApprovalRemarks(e.target.value)}
+                placeholder="Specify what details need correction or re-upload..."
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmRequestChangesBen(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRequestChangesConfirmed}
+                disabled={actionSubmitting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-lg shadow-amber-600/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {actionSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                Send Change Request
               </button>
             </div>
           </div>

@@ -408,4 +408,55 @@ public class BeneficiaryController {
         return ResponseEntity.ok(
                 BaseResponse.success(null, "Beneficiary profile with ID " + id + " deleted successfully"));
     }
+
+    // =========================================================================
+    // APPROVAL WORKFLOW ENDPOINTS
+    // =========================================================================
+
+    @PutMapping("/{id}/approve")
+    @Operation(summary = "Approve beneficiary registration", description = "Admin approves a beneficiary profile, setting status to VERIFIED.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER', 'FIELD_OFFICER')")
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> approveBeneficiary(
+            @PathVariable Long id,
+            @RequestBody(required = false) com.gov.subsidy.dto.BeneficiaryApprovalDto approvalDto,
+            java.security.Principal principal) {
+        String admin = principal != null ? principal.getName() : "ADMIN";
+        String remarks = approvalDto != null ? approvalDto.getRemarks() : null;
+        BeneficiaryDto approved = beneficiaryService.approveBeneficiary(id, remarks, admin);
+        return ResponseEntity.ok(BaseResponse.success(approved, "Beneficiary approved successfully"));
+    }
+
+    @PutMapping("/{id}/reject")
+    @Operation(summary = "Reject beneficiary registration", description = "Admin rejects a beneficiary profile with reason, setting status to REJECTED.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER', 'FIELD_OFFICER')")
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> rejectBeneficiary(
+            @PathVariable Long id,
+            @RequestBody(required = false) com.gov.subsidy.dto.BeneficiaryApprovalDto approvalDto,
+            java.security.Principal principal) {
+        String admin = principal != null ? principal.getName() : "ADMIN";
+        String reason = approvalDto != null ? (approvalDto.getReason() != null ? approvalDto.getReason() : approvalDto.getRemarks()) : null;
+        BeneficiaryDto rejected = beneficiaryService.rejectBeneficiary(id, reason, admin);
+        return ResponseEntity.ok(BaseResponse.success(rejected, "Beneficiary registration rejected"));
+    }
+
+    @PutMapping("/{id}/request-changes")
+    @Operation(summary = "Request changes for beneficiary registration", description = "Admin requests modifications for a beneficiary profile, setting status to CHANGES_REQUIRED.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DISTRICT_OFFICER', 'FIELD_OFFICER')")
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> requestChanges(
+            @PathVariable Long id,
+            @RequestBody(required = false) com.gov.subsidy.dto.BeneficiaryApprovalDto approvalDto,
+            java.security.Principal principal) {
+        String admin = principal != null ? principal.getName() : "ADMIN";
+        String remarks = approvalDto != null ? approvalDto.getRemarks() : null;
+        BeneficiaryDto updated = beneficiaryService.requestChanges(id, remarks, admin);
+        return ResponseEntity.ok(BaseResponse.success(updated, "Changes requested for beneficiary profile"));
+    }
+
+    @PutMapping("/{id}/resubmit")
+    @Operation(summary = "Resubmit beneficiary profile", description = "Beneficiary resubmits profile after making requested changes, resetting status to PENDING.")
+    @PreAuthorize("hasAnyRole('BENEFICIARY', 'ADMIN')")
+    public ResponseEntity<BaseResponse<BeneficiaryDto>> resubmitBeneficiary(@PathVariable Long id) {
+        BeneficiaryDto resubmitted = beneficiaryService.resubmitBeneficiary(id);
+        return ResponseEntity.ok(BaseResponse.success(resubmitted, "Beneficiary profile resubmitted for verification"));
+    }
 }

@@ -86,4 +86,12 @@ public interface BeneficiaryService {
      * @throws com.gov.subsidy.exception.ResourceNotFoundException if no beneficiary exists for the username
      */
     BeneficiaryDto getBeneficiaryByUsername(String username);
+
+    BeneficiaryDto approveBeneficiary(Long id, String remarks, String adminUsername);
+
+    BeneficiaryDto rejectBeneficiary(Long id, String reason, String adminUsername);
+
+    BeneficiaryDto requestChanges(Long id, String remarks, String adminUsername);
+
+    BeneficiaryDto resubmitBeneficiary(Long id);
 }

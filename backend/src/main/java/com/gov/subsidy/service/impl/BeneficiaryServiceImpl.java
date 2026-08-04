@@ -17,18 +17,26 @@ import com.gov.subsidy.repository.ApplicationRepository;
 import com.gov.subsidy.repository.BeneficiaryRepository;
 import com.gov.subsidy.repository.ComplianceRepository;
 import com.gov.subsidy.repository.FundUtilizationRepository;
+import com.gov.subsidy.entity.AuditLog;
+import com.gov.subsidy.repository.ApplicationDocumentRepository;
+import com.gov.subsidy.repository.ApplicationRepository;
+import com.gov.subsidy.repository.AuditLogRepository;
+import com.gov.subsidy.repository.BeneficiaryRepository;
+import com.gov.subsidy.repository.ComplianceRepository;
+import com.gov.subsidy.repository.FundUtilizationRepository;
 import com.gov.subsidy.repository.UserRepository;
 import com.gov.subsidy.service.BeneficiaryService;
+import com.gov.subsidy.service.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link BeneficiaryService} containing all business logic
- * for beneficiary CRUD operations, including validation, uniqueness checks,
- * and proper mapping between DTOs and entities.
+ * for beneficiary CRUD operations and approval workflow transitions.
  */
 @Service
 @Transactional
@@ -41,6 +49,8 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
     private final ApplicationDocumentRepository applicationDocumentRepository;
     private final ComplianceRepository complianceRepository;
     private final FundUtilizationRepository fundUtilizationRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final EmailService emailService;
 
     public BeneficiaryServiceImpl(BeneficiaryRepository beneficiaryRepository,
                                    UserRepository userRepository,
@@ -48,7 +58,9 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
                                    ApplicationRepository applicationRepository,
                                    ApplicationDocumentRepository applicationDocumentRepository,
                                    ComplianceRepository complianceRepository,
-                                   FundUtilizationRepository fundUtilizationRepository) {
+                                   FundUtilizationRepository fundUtilizationRepository,
+                                   AuditLogRepository auditLogRepository,
+                                   EmailService emailService) {
         this.beneficiaryRepository = beneficiaryRepository;
         this.userRepository = userRepository;
         this.beneficiaryMapper = beneficiaryMapper;
@@ -56,6 +68,8 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
         this.applicationDocumentRepository = applicationDocumentRepository;
         this.complianceRepository = complianceRepository;
         this.fundUtilizationRepository = fundUtilizationRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.emailService = emailService;
     }
 
     // =========================================================================
@@ -248,20 +262,135 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
     }
 
     // =========================================================================
+    // APPROVAL WORKFLOW
+    // =========================================================================
+
+    @Override
+    @Transactional
+    public BeneficiaryDto approveBeneficiary(Long id, String remarks, String adminUsername) {
+        Beneficiary beneficiary = beneficiaryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Beneficiary not found with ID: " + id));
+
+        beneficiary.setEligibilityStatus(VerificationStatus.VERIFIED);
+        beneficiary.setVerifiedBy(adminUsername != null ? adminUsername : "ADMIN");
+        beneficiary.setVerifiedDate(LocalDateTime.now());
+        beneficiary.setApprovalRemarks(remarks);
+
+        Beneficiary saved = beneficiaryRepository.save(beneficiary);
+
+        saveAuditLog("BENEFICIARY_APPROVED", adminUsername != null ? adminUsername : "ADMIN",
+                "Beneficiary ID: " + id + " [" + beneficiary.getUniqueIdNumber() + "] approved. Remarks: " + (remarks != null ? remarks : "N/A"));
+
+        if (beneficiary.getUser() != null && beneficiary.getUser().getEmail() != null) {
+            try {
+                emailService.sendEmail(
+                        beneficiary.getUser().getEmail(),
+                        "Beneficiary Registration Approved",
+                        "Dear " + beneficiary.getUser().getFirstName() + ",\n\nYour citizen beneficiary registration profile has been VERIFIED & APPROVED by administration.\n\nApproval Remarks: " + (remarks != null ? remarks : "None") + "\n\nYou may now apply for government subsidy schemes through the portal."
+                );
+            } catch (Exception ignored) {}
+        }
+
+        return beneficiaryMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public BeneficiaryDto rejectBeneficiary(Long id, String reason, String adminUsername) {
+        Beneficiary beneficiary = beneficiaryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Beneficiary not found with ID: " + id));
+
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Rejection reason is required.");
+        }
+
+        beneficiary.setEligibilityStatus(VerificationStatus.REJECTED);
+        beneficiary.setRejectedBy(adminUsername != null ? adminUsername : "ADMIN");
+        beneficiary.setRejectedDate(LocalDateTime.now());
+        beneficiary.setRejectionReason(reason);
+        beneficiary.setApprovalRemarks(reason);
+
+        Beneficiary saved = beneficiaryRepository.save(beneficiary);
+
+        saveAuditLog("BENEFICIARY_REJECTED", adminUsername != null ? adminUsername : "ADMIN",
+                "Beneficiary ID: " + id + " [" + beneficiary.getUniqueIdNumber() + "] rejected. Reason: " + reason);
+
+        if (beneficiary.getUser() != null && beneficiary.getUser().getEmail() != null) {
+            try {
+                emailService.sendEmail(
+                        beneficiary.getUser().getEmail(),
+                        "Beneficiary Registration Rejected",
+                        "Dear " + beneficiary.getUser().getFirstName() + ",\n\nYour citizen beneficiary registration profile has been REJECTED by administration.\n\nRejection Reason: " + reason
+                );
+            } catch (Exception ignored) {}
+        }
+
+        return beneficiaryMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public BeneficiaryDto requestChanges(Long id, String remarks, String adminUsername) {
+        Beneficiary beneficiary = beneficiaryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Beneficiary not found with ID: " + id));
+
+        if (remarks == null || remarks.isBlank()) {
+            throw new IllegalArgumentException("Remarks detailing requested changes are required.");
+        }
+
+        beneficiary.setEligibilityStatus(VerificationStatus.CHANGES_REQUIRED);
+        beneficiary.setApprovalRemarks(remarks);
+
+        Beneficiary saved = beneficiaryRepository.save(beneficiary);
+
+        saveAuditLog("BENEFICIARY_CHANGES_REQUESTED", adminUsername != null ? adminUsername : "ADMIN",
+                "Changes requested for Beneficiary ID: " + id + ". Remarks: " + remarks);
+
+        if (beneficiary.getUser() != null && beneficiary.getUser().getEmail() != null) {
+            try {
+                emailService.sendEmail(
+                        beneficiary.getUser().getEmail(),
+                        "Action Required: Changes Requested for Registration",
+                        "Dear " + beneficiary.getUser().getFirstName() + ",\n\nAn administrator has requested changes to your beneficiary profile.\n\nRequested Changes: " + remarks + "\n\nPlease log into the portal to update your profile and resubmit."
+                );
+            } catch (Exception ignored) {}
+        }
+
+        return beneficiaryMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public BeneficiaryDto resubmitBeneficiary(Long id) {
+        Beneficiary beneficiary = beneficiaryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Beneficiary not found with ID: " + id));
+
+        beneficiary.setEligibilityStatus(VerificationStatus.PENDING);
+        Beneficiary saved = beneficiaryRepository.save(beneficiary);
+
+        String username = beneficiary.getUser() != null ? beneficiary.getUser().getUsername() : "BENEFICIARY";
+        saveAuditLog("BENEFICIARY_RESUBMITTED", username,
+                "Beneficiary ID: " + id + " resubmitted profile for verification.");
+
+        return beneficiaryMapper.toDto(saved);
+    }
+
+    private void saveAuditLog(String action, String performedBy, String details) {
+        try {
+            AuditLog log = AuditLog.builder()
+                    .action(action)
+                    .performedBy(performedBy)
+                    .details(details)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            auditLogRepository.save(log);
+        } catch (Exception ignored) {}
+    }
+
+    // =========================================================================
     // PRIVATE HELPERS
     // =========================================================================
 
-    /**
-     * Parses a string value into the corresponding enum constant.
-     *
-     * @param enumClass    the enum class to parse into
-     * @param value        the raw string value from the request
-     * @param fieldName    the name of the DTO field (for error messages)
-     * @param allowedValues a human-readable list of valid values (for error messages)
-     * @param <T>          the enum type
-     * @return the parsed enum constant
-     * @throws IllegalArgumentException if the value is not a valid enum constant
-     */
     private <T extends Enum<T>> T parseEnum(Class<T> enumClass, String value,
                                              String fieldName, String allowedValues) {
         try {

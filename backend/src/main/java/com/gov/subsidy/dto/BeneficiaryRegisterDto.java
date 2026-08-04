@@ -52,7 +52,6 @@ public class BeneficiaryRegisterDto {
     @Past(message = "Date of birth must be in the past")
     private LocalDate dateOfBirth;
 
-    @NotBlank(message = "Address is required")
     @Size(max = 500, message = "Address must not exceed 500 characters")
     private String address;
 
@@ -67,4 +66,21 @@ public class BeneficiaryRegisterDto {
     private String district;
     private String state;
     private String occupation;
+
+    private String maritalStatus;
+    private String disability;
+    private String houseNo;
+    private String street;
+    private String city;
+    private String country;
+    private String pinCode;
+
+    private java.math.BigDecimal annualIncome;
+    private Integer familySize;
+    private String rationCard;
+    private String bplApl;
+
+    private String accountHolder;
+    private String bankName;
+    private String passportPhoto;
 }

@@ -93,6 +93,76 @@ public class Beneficiary extends BaseEntity {
     @Column(name = "occupation", length = 100)
     private String occupation;
 
+    @Size(max = 30, message = "Marital status must not exceed 30 characters")
+    @Column(name = "marital_status", length = 30)
+    private String maritalStatus;
+
+    @Size(max = 50, message = "Disability status must not exceed 50 characters")
+    @Column(name = "disability_status", length = 50)
+    private String disabilityStatus;
+
+    @Size(max = 100, message = "House No must not exceed 100 characters")
+    @Column(name = "house_no", length = 100)
+    private String houseNo;
+
+    @Size(max = 200, message = "Street must not exceed 200 characters")
+    @Column(name = "street", length = 200)
+    private String street;
+
+    @Size(max = 100, message = "City must not exceed 100 characters")
+    @Column(name = "city", length = 100)
+    private String city;
+
+    @Size(max = 100, message = "Country must not exceed 100 characters")
+    @Column(name = "country", length = 100)
+    private String country;
+
+    @Size(max = 20, message = "PIN code must not exceed 20 characters")
+    @Column(name = "pin_code", length = 20)
+    private String pinCode;
+
+    @Column(name = "family_size")
+    private Integer familySize;
+
+    @Size(max = 50, message = "Ration card number must not exceed 50 characters")
+    @Column(name = "ration_card_number", length = 50)
+    private String rationCardNumber;
+
+    @Size(max = 20, message = "BPL/APL status must not exceed 20 characters")
+    @Column(name = "bpl_apl_status", length = 20)
+    private String bplAplStatus;
+
+    @Size(max = 150, message = "Account holder name must not exceed 150 characters")
+    @Column(name = "account_holder_name", length = 150)
+    private String accountHolderName;
+
+    @Size(max = 150, message = "Bank name must not exceed 150 characters")
+    @Column(name = "bank_name", length = 150)
+    private String bankName;
+
+    @Column(name = "passport_photo_url", columnDefinition = "TEXT")
+    private String passportPhotoUrl;
+
+    @Size(max = 100)
+    @Column(name = "verified_by", length = 100)
+    private String verifiedBy;
+
+    @Column(name = "verified_date")
+    private java.time.LocalDateTime verifiedDate;
+
+    @Size(max = 100)
+    @Column(name = "rejected_by", length = 100)
+    private String rejectedBy;
+
+    @Column(name = "rejected_date")
+    private java.time.LocalDateTime rejectedDate;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "approval_remarks", columnDefinition = "TEXT")
+    private String approvalRemarks;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

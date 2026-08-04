@@ -20,8 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 
 @Service
 @Transactional
@@ -122,22 +124,58 @@ public class AuthRegistrationServiceImpl implements AuthRegistrationService {
 
         User savedUser = userRepository.save(user);
 
+        BigDecimal annualIncome = registerDto.getAnnualIncome() != null ? registerDto.getAnnualIncome() : BigDecimal.ZERO;
+        String address = registerDto.getAddress();
+        if (address == null || address.isBlank()) {
+            List<String> parts = new java.util.ArrayList<>();
+            if (registerDto.getHouseNo() != null && !registerDto.getHouseNo().isBlank()) parts.add(registerDto.getHouseNo());
+            if (registerDto.getStreet() != null && !registerDto.getStreet().isBlank()) parts.add(registerDto.getStreet());
+            if (registerDto.getCity() != null && !registerDto.getCity().isBlank()) parts.add(registerDto.getCity());
+            if (registerDto.getDistrict() != null && !registerDto.getDistrict().isBlank()) parts.add(registerDto.getDistrict());
+            if (registerDto.getState() != null && !registerDto.getState().isBlank()) {
+                String statePin = registerDto.getState();
+                if (registerDto.getPinCode() != null && !registerDto.getPinCode().isBlank()) {
+                    statePin += " - " + registerDto.getPinCode();
+                }
+                parts.add(statePin);
+            } else if (registerDto.getPinCode() != null && !registerDto.getPinCode().isBlank()) {
+                parts.add(registerDto.getPinCode());
+            }
+            address = String.join(", ", parts);
+        }
+        if (address == null || address.isBlank()) {
+            address = "N/A";
+        }
+
         // 11. Build and save Beneficiary
         Beneficiary beneficiary = Beneficiary.builder()
                 .user(savedUser)
                 .uniqueIdNumber(registerDto.getAadhaarNumber())
                 .phoneNumber(registerDto.getMobileNumber())
-                .address(registerDto.getAddress())
+                .address(address)
                 .district(registerDto.getDistrict())
                 .state(registerDto.getState())
                 .bankAccountNumber(registerDto.getBankAccountNumber())
                 .bankIfscCode(registerDto.getIfscCode())
                 .dateOfBirth(registerDto.getDateOfBirth())
-                .annualIncome(BigDecimal.ZERO)
+                .annualIncome(annualIncome)
                 .eligibilityStatus(VerificationStatus.PENDING)
                 .gender(gender)
                 .category(category)
                 .occupation(registerDto.getOccupation())
+                .maritalStatus(registerDto.getMaritalStatus())
+                .disabilityStatus(registerDto.getDisability())
+                .houseNo(registerDto.getHouseNo())
+                .street(registerDto.getStreet())
+                .city(registerDto.getCity())
+                .country(registerDto.getCountry() != null ? registerDto.getCountry() : "India")
+                .pinCode(registerDto.getPinCode())
+                .familySize(registerDto.getFamilySize())
+                .rationCardNumber(registerDto.getRationCard())
+                .bplAplStatus(registerDto.getBplApl())
+                .accountHolderName(registerDto.getAccountHolder())
+                .bankName(registerDto.getBankName())
+                .passportPhotoUrl(registerDto.getPassportPhoto())
                 .build();
 
         Beneficiary savedBeneficiary = beneficiaryRepository.save(beneficiary);
