@@ -203,6 +203,21 @@ public class UserController {
     }
 
     // =========================================================================
+    // DELETE /v1/users/purge-dummy — Purge Dummy Users (Admin Only)
+    // =========================================================================
+
+    @DeleteMapping("/purge-dummy")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Purge dummy and test user accounts from database (Admin only)",
+            description = "Deletes test/dummy user accounts ending with @example.com, test emails, or test usernames."
+    )
+    public ResponseEntity<BaseResponse<Integer>> purgeDummyUsers(java.security.Principal principal) {
+        int count = userService.purgeDummyUsers(principal.getName());
+        return ResponseEntity.ok(BaseResponse.success(count, count + " dummy/test user account(s) purged successfully"));
+    }
+
+    // =========================================================================
     // PATCH /v1/users/{id}/activate — Activate User (Admin Only)
     // =========================================================================
 

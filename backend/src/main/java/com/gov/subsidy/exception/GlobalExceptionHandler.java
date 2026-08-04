@@ -98,6 +98,41 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(SchemeInUseException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleSchemeInUseException(SchemeInUseException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .status(HttpStatus.CONFLICT.value())
+                .error("SCHEME_IN_USE")
+                .timestamp(LocalDateTime.now())
+                .message(ex.getMessage())
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message(ex.getMessage())
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(BeneficiaryHasDependenciesException.class)
+    public ResponseEntity<BaseResponse<ErrorDetails>> handleBeneficiaryHasDependenciesException(
+            BeneficiaryHasDependenciesException ex, WebRequest request) {
+        ErrorDetails details = ErrorDetails.builder()
+                .status(HttpStatus.CONFLICT.value())
+                .error("BENEFICIARY_HAS_DEPENDENCIES")
+                .timestamp(LocalDateTime.now())
+                .message(ex.getMessage())
+                .details(request.getDescription(false))
+                .build();
+        BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
+                .success(false)
+                .message(ex.getMessage())
+                .data(details)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<BaseResponse<ErrorDetails>> handleIllegalArgumentException(IllegalArgumentException ex, WebRequest request) {
         ErrorDetails details = ErrorDetails.builder()
@@ -148,13 +183,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse<ErrorDetails>> handleGlobalException(Exception ex, WebRequest request) {
         ErrorDetails details = ErrorDetails.builder()
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("INTERNAL_SERVER_ERROR")
                 .timestamp(LocalDateTime.now())
-                .message(ex.getMessage())
+                .message(ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : "Unable to load the requested information.")
                 .details(request.getDescription(false))
                 .build();
         BaseResponse<ErrorDetails> response = BaseResponse.<ErrorDetails>builder()
                 .success(false)
-                .message("An unexpected error occurred")
+                .message("Unable to load the requested information.")
                 .data(details)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);

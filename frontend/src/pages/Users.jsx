@@ -609,6 +609,7 @@ export default function Users() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedDeleteUser, setSelectedDeleteUser] = useState(null);
   const [deletingPermanently, setDeletingPermanently] = useState(false);
+  const [purgingDummy, setPurgingDummy] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -627,6 +628,24 @@ export default function Users() {
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const handlePurgeDummy = async () => {
+    if (!window.confirm('Purge all dummy and test user accounts from the database? This action cannot be undone.')) return;
+    setPurgingDummy(true);
+    try {
+      const res = await axiosInstance.delete('/v1/users/purge-dummy');
+      if (res.data?.success) {
+        toast.success(res.data?.message || 'Dummy user accounts purged successfully.');
+        fetchUsers();
+      } else {
+        toast.error(res.data?.message || 'Failed to purge dummy accounts');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error purging dummy accounts');
+    } finally {
+      setPurgingDummy(false);
+    }
+  };
 
   const handleDeactivate = async (u) => {
     if (!window.confirm(`Deactivate account for '${u.username}'? They will no longer be able to log in.`)) return;
@@ -788,14 +807,26 @@ export default function Users() {
             Manage Government Staff accounts. Citizens self-register via the public portal.
           </p>
         </div>
-        <button
-          id="btn-create-staff"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 hover:bg-blue-700 active:bg-blue-800 transition-all cursor-pointer"
-        >
-          <UserPlus className="h-4 w-4" />
-          + Create Staff Account
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            id="btn-purge-dummy"
+            onClick={handlePurgeDummy}
+            disabled={purgingDummy}
+            title="Purge test and dummy user accounts from database"
+            className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-60"
+          >
+            {purgingDummy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Purge Dummy Data
+          </button>
+          <button
+            id="btn-create-staff"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 hover:bg-blue-700 active:bg-blue-800 transition-all cursor-pointer"
+          >
+            <UserPlus className="h-4 w-4" />
+            + Create Staff Account
+          </button>
+        </div>
       </div>
 
       {/* Stats Bar */}

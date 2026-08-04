@@ -16,6 +16,12 @@ import com.gov.subsidy.repository.BeneficiaryRepository;
 import com.gov.subsidy.repository.ApplicationRepository;
 import com.gov.subsidy.repository.VerificationRepository;
 import com.gov.subsidy.repository.VerificationHistoryRepository;
+import com.gov.subsidy.repository.ApplicationDocumentRepository;
+import com.gov.subsidy.repository.RoutingRecordRepository;
+import com.gov.subsidy.repository.DisbursementMilestoneRepository;
+import com.gov.subsidy.repository.DisbursementPlanRepository;
+import com.gov.subsidy.repository.DisbursementRepository;
+import com.gov.subsidy.repository.WorkflowAuditLogRepository;
 import com.gov.subsidy.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -50,6 +56,12 @@ public class UserServiceImpl implements UserService {
     private final ApplicationRepository applicationRepository;
     private final VerificationRepository verificationRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
+    private final ApplicationDocumentRepository applicationDocumentRepository;
+    private final RoutingRecordRepository routingRecordRepository;
+    private final DisbursementMilestoneRepository disbursementMilestoneRepository;
+    private final DisbursementPlanRepository disbursementPlanRepository;
+    private final DisbursementRepository disbursementRepository;
+    private final WorkflowAuditLogRepository workflowAuditLogRepository;
 
     public UserServiceImpl(UserRepository userRepository,
                            RoleRepository roleRepository,
@@ -59,7 +71,13 @@ public class UserServiceImpl implements UserService {
                            BeneficiaryRepository beneficiaryRepository,
                            ApplicationRepository applicationRepository,
                            VerificationRepository verificationRepository,
-                           VerificationHistoryRepository verificationHistoryRepository) {
+                           VerificationHistoryRepository verificationHistoryRepository,
+                           ApplicationDocumentRepository applicationDocumentRepository,
+                           RoutingRecordRepository routingRecordRepository,
+                           DisbursementMilestoneRepository disbursementMilestoneRepository,
+                           DisbursementPlanRepository disbursementPlanRepository,
+                           DisbursementRepository disbursementRepository,
+                           WorkflowAuditLogRepository workflowAuditLogRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userMapper = userMapper;
@@ -69,6 +87,12 @@ public class UserServiceImpl implements UserService {
         this.applicationRepository = applicationRepository;
         this.verificationRepository = verificationRepository;
         this.verificationHistoryRepository = verificationHistoryRepository;
+        this.applicationDocumentRepository = applicationDocumentRepository;
+        this.routingRecordRepository = routingRecordRepository;
+        this.disbursementMilestoneRepository = disbursementMilestoneRepository;
+        this.disbursementPlanRepository = disbursementPlanRepository;
+        this.disbursementRepository = disbursementRepository;
+        this.workflowAuditLogRepository = workflowAuditLogRepository;
     }
 
     // =========================================================================
@@ -170,13 +194,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserDto> getAllUsers() {
-        Set<RoleType> staffRoles = Set.of(
-                RoleType.ROLE_ADMIN,
-                RoleType.ROLE_FIELD_OFFICER,
-                RoleType.ROLE_DISTRICT_OFFICER,
-                RoleType.ROLE_FINANCE_OFFICER
-        );
-        return userRepository.findUsersByRoles(staffRoles).stream()
+        return userRepository.findAll().stream()
                 .map(userMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -297,13 +315,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void deleteUserPermanently(Long id, String performingAdminUsername) {
         // 1. User exists
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
 
         // 2. User is not the currently logged-in Admin
-        if (user.getUsername().equals(performingAdminUsername)) {
+        if (user.getUsername().equalsIgnoreCase(performingAdminUsername)) {
             throw new IllegalStateException("You cannot permanently delete your own logged-in admin account.");
         }
 
@@ -319,32 +338,90 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // 4. Validate related records to preserve audit integrity:
+        // 4. Cascade cleanup related records to allow permanent deletion of accounts:
         // Case A: Is the user a Beneficiary?
         com.gov.subsidy.entity.Beneficiary beneficiary = beneficiaryRepository.findByUserId(id).orElse(null);
         if (beneficiary != null) {
-            boolean hasApplications = !applicationRepository.findByBeneficiaryId(beneficiary.getId()).isEmpty();
-            if (hasApplications) {
-                throw new IllegalStateException("Cannot delete user as they have associated beneficiary applications.");
+            List<com.gov.subsidy.entity.Application> apps = applicationRepository.findByBeneficiaryId(beneficiary.getId());
+            for (com.gov.subsidy.entity.Application app : apps) {
+                // Remove workflow audit logs
+                List<com.gov.subsidy.entity.WorkflowAuditLog> wLogs = workflowAuditLogRepository.findByApplicationIdOrderByOccurredAtAsc(app.getId());
+                if (wLogs != null && !wLogs.isEmpty()) {
+                    workflowAuditLogRepository.deleteAll(wLogs);
+                }
+
+                // Remove verification history and verification
+                verificationRepository.findByApplicationId(app.getId()).ifPresent(v -> {
+                    List<com.gov.subsidy.entity.VerificationHistory> vhList = verificationHistoryRepository.findByVerificationIdOrderByActionDateAsc(v.getId());
+                    if (vhList != null && !vhList.isEmpty()) {
+                        verificationHistoryRepository.deleteAll(vhList);
+                    }
+                    verificationRepository.delete(v);
+                });
+
+                // Remove application documents
+                List<com.gov.subsidy.entity.ApplicationDocument> docs = applicationDocumentRepository.findByApplicationId(app.getId());
+                if (docs != null && !docs.isEmpty()) {
+                    applicationDocumentRepository.deleteAll(docs);
+                }
+
+                // Remove routing records
+                List<com.gov.subsidy.entity.RoutingRecord> rrs = routingRecordRepository.findByApplicationIdOrderByRoutedAtAsc(app.getId());
+                if (rrs != null && !rrs.isEmpty()) {
+                    routingRecordRepository.deleteAll(rrs);
+                }
+
+                // Remove disbursements, plans, milestones
+                disbursementPlanRepository.findByApplicationId(app.getId()).ifPresent(plan -> {
+                    List<com.gov.subsidy.entity.DisbursementMilestone> ms = disbursementMilestoneRepository.findByDisbursementPlanIdOrderByMilestoneNumberAsc(plan.getId());
+                    if (ms != null && !ms.isEmpty()) {
+                        disbursementMilestoneRepository.deleteAll(ms);
+                    }
+                    disbursementPlanRepository.delete(plan);
+                });
+
+                List<com.gov.subsidy.entity.Disbursement> disbursements = disbursementRepository.findByApplicationId(app.getId());
+                if (disbursements != null && !disbursements.isEmpty()) {
+                    disbursementRepository.deleteAll(disbursements);
+                }
+
+                // Delete application
+                applicationRepository.delete(app);
             }
-            // If beneficiary exists but has no applications, delete beneficiary first to respect FK constraints
+
+            // Delete documents linked directly to beneficiary
+            List<com.gov.subsidy.entity.ApplicationDocument> bDocs = applicationDocumentRepository.findByBeneficiaryId(beneficiary.getId());
+            if (bDocs != null && !bDocs.isEmpty()) {
+                applicationDocumentRepository.deleteAll(bDocs);
+            }
+
+            // Delete beneficiary profile
             beneficiaryRepository.delete(beneficiary);
         }
 
-        // Case B: Is the user a Staff officer?
-        boolean hasAssignedApps = !applicationRepository.findByAssignedOfficerId(id).isEmpty();
-        if (hasAssignedApps) {
-            throw new IllegalStateException("Cannot delete staff user as they have assigned applications.");
+        // Case B: Is the user a Staff officer? Unassign officer references to prevent FK constraint failures.
+        List<com.gov.subsidy.entity.Application> assignedApps = applicationRepository.findByAssignedOfficerId(id);
+        if (assignedApps != null && !assignedApps.isEmpty()) {
+            for (com.gov.subsidy.entity.Application app : assignedApps) {
+                app.setAssignedOfficer(null);
+                applicationRepository.save(app);
+            }
         }
 
-        boolean hasVerifications = !verificationRepository.findByFieldOfficerId(id).isEmpty();
-        if (hasVerifications) {
-            throw new IllegalStateException("Cannot delete staff user as they have field verification records.");
+        List<com.gov.subsidy.entity.Verification> verifications = verificationRepository.findByFieldOfficerId(id);
+        if (verifications != null && !verifications.isEmpty()) {
+            for (com.gov.subsidy.entity.Verification v : verifications) {
+                v.setFieldOfficer(null);
+                verificationRepository.save(v);
+            }
         }
 
-        boolean hasHistory = !verificationHistoryRepository.findByOfficerId(id).isEmpty();
-        if (hasHistory) {
-            throw new IllegalStateException("Cannot delete staff user as they have verification workflow history logs.");
+        List<com.gov.subsidy.entity.VerificationHistory> vhList = verificationHistoryRepository.findByOfficerId(id);
+        if (vhList != null && !vhList.isEmpty()) {
+            for (com.gov.subsidy.entity.VerificationHistory vh : vhList) {
+                vh.setOfficer(null);
+                verificationHistoryRepository.save(vh);
+            }
         }
 
         // 5. Write Audit Log entry
@@ -359,5 +436,37 @@ public class UserServiceImpl implements UserService {
 
         // 6. Delete user permanently from database
         userRepository.delete(user);
+    }
+
+    @Override
+    @Transactional
+    public int purgeDummyUsers(String performingAdminUsername) {
+        List<User> allUsers = userRepository.findAll();
+        int deletedCount = 0;
+        for (User user : allUsers) {
+            if (user.getUsername() == null || user.getUsername().equalsIgnoreCase(performingAdminUsername)) {
+                continue;
+            }
+            String email = user.getEmail() != null ? user.getEmail().toLowerCase() : "";
+            String username = user.getUsername().toLowerCase();
+
+            // Identify dummy/test accounts
+            boolean isDummy = email.endsWith("@example.com") ||
+                              email.endsWith("@govsubsidy.gov") ||
+                              username.contains("tester") ||
+                              username.contains("ravi") ||
+                              username.contains("johndoe") ||
+                              username.equals("beneficiary_demo");
+
+            if (isDummy) {
+                try {
+                    deleteUserPermanently(user.getId(), performingAdminUsername);
+                    deletedCount++;
+                } catch (Exception e) {
+                    // Log & continue purging remaining
+                }
+            }
+        }
+        return deletedCount;
     }
 }

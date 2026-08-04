@@ -14,6 +14,8 @@ public interface ApplicationDocumentRepository extends JpaRepository<Application
 
     List<ApplicationDocument> findByBeneficiaryId(Long beneficiaryId);
 
+    boolean existsByBeneficiaryId(Long beneficiaryId);
+
     List<ApplicationDocument> findByApplicationIdAndDocumentType(Long applicationId, String documentType);
 
     boolean existsByApplicationIdAndDocumentType(Long applicationId, String documentType);

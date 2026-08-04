@@ -3,18 +3,37 @@ package com.gov.subsidy.service.impl;
 import com.gov.subsidy.dto.SchemeCreateDto;
 import com.gov.subsidy.dto.SchemeDto;
 import com.gov.subsidy.dto.SchemeUpdateDto;
+import com.gov.subsidy.entity.Application;
+import com.gov.subsidy.entity.ApplicationDocument;
+import com.gov.subsidy.entity.DisbursementPlan;
 import com.gov.subsidy.entity.Scheme;
+import com.gov.subsidy.entity.Verification;
 import com.gov.subsidy.enums.SchemeStatus;
 import com.gov.subsidy.exception.DuplicateResourceException;
 import com.gov.subsidy.exception.ResourceNotFoundException;
+import com.gov.subsidy.exception.SchemeInUseException;
 import com.gov.subsidy.mapper.SchemeMapper;
+import com.gov.subsidy.repository.ApplicationDocumentRepository;
+import com.gov.subsidy.repository.ApplicationRepository;
+import com.gov.subsidy.repository.ComplianceRepository;
+import com.gov.subsidy.repository.DisbursementMilestoneRepository;
+import com.gov.subsidy.repository.DisbursementPlanRepository;
+import com.gov.subsidy.repository.DisbursementRepository;
+import com.gov.subsidy.repository.FundUtilizationRepository;
+import com.gov.subsidy.repository.RoutingRecordRepository;
 import com.gov.subsidy.repository.SchemeRepository;
+import com.gov.subsidy.repository.VerificationHistoryRepository;
+import com.gov.subsidy.repository.VerificationRepository;
+import com.gov.subsidy.repository.WorkflowAuditLogRepository;
 import com.gov.subsidy.service.SchemeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -35,12 +54,48 @@ import java.util.stream.Collectors;
 @Transactional
 public class SchemeServiceImpl implements SchemeService {
 
+    private static final Logger log = LoggerFactory.getLogger(SchemeServiceImpl.class);
+
     private final SchemeRepository schemeRepository;
     private final SchemeMapper schemeMapper;
+    private final ApplicationRepository applicationRepository;
+    private final ApplicationDocumentRepository applicationDocumentRepository;
+    private final VerificationRepository verificationRepository;
+    private final VerificationHistoryRepository verificationHistoryRepository;
+    private final WorkflowAuditLogRepository workflowAuditLogRepository;
+    private final DisbursementPlanRepository disbursementPlanRepository;
+    private final DisbursementMilestoneRepository disbursementMilestoneRepository;
+    private final DisbursementRepository disbursementRepository;
+    private final ComplianceRepository complianceRepository;
+    private final FundUtilizationRepository fundUtilizationRepository;
+    private final RoutingRecordRepository routingRecordRepository;
 
-    public SchemeServiceImpl(SchemeRepository schemeRepository, SchemeMapper schemeMapper) {
+    public SchemeServiceImpl(SchemeRepository schemeRepository,
+                             SchemeMapper schemeMapper,
+                             ApplicationRepository applicationRepository,
+                             ApplicationDocumentRepository applicationDocumentRepository,
+                             VerificationRepository verificationRepository,
+                             VerificationHistoryRepository verificationHistoryRepository,
+                             WorkflowAuditLogRepository workflowAuditLogRepository,
+                             DisbursementPlanRepository disbursementPlanRepository,
+                             DisbursementMilestoneRepository disbursementMilestoneRepository,
+                             DisbursementRepository disbursementRepository,
+                             ComplianceRepository complianceRepository,
+                             FundUtilizationRepository fundUtilizationRepository,
+                             RoutingRecordRepository routingRecordRepository) {
         this.schemeRepository = schemeRepository;
         this.schemeMapper = schemeMapper;
+        this.applicationRepository = applicationRepository;
+        this.applicationDocumentRepository = applicationDocumentRepository;
+        this.verificationRepository = verificationRepository;
+        this.verificationHistoryRepository = verificationHistoryRepository;
+        this.workflowAuditLogRepository = workflowAuditLogRepository;
+        this.disbursementPlanRepository = disbursementPlanRepository;
+        this.disbursementMilestoneRepository = disbursementMilestoneRepository;
+        this.disbursementRepository = disbursementRepository;
+        this.complianceRepository = complianceRepository;
+        this.fundUtilizationRepository = fundUtilizationRepository;
+        this.routingRecordRepository = routingRecordRepository;
     }
 
     // =========================================================================
@@ -192,15 +247,106 @@ public class SchemeServiceImpl implements SchemeService {
     }
 
     // =========================================================================
-    // DELETE
+    // DELETE & DEACTIVATE
     // =========================================================================
 
     @Override
     public void deleteScheme(Long id) {
-        if (!schemeRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Scheme not found with ID: " + id);
+        Scheme scheme = schemeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found with ID: " + id));
+
+        boolean inUse = applicationRepository.existsBySchemeId(id);
+        if (inUse) {
+            throw new SchemeInUseException(
+                    "Cannot delete this scheme because it is associated with existing beneficiary applications. Deactivate the scheme instead.");
         }
-        schemeRepository.deleteById(id);
+
+        schemeRepository.delete(scheme);
+    }
+
+    @Override
+    public SchemeDto deactivateScheme(Long id) {
+        Scheme scheme = schemeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found with ID: " + id));
+
+        scheme.setActive(false);
+        scheme.setStatus(SchemeStatus.INACTIVE);
+
+        Scheme saved = schemeRepository.save(scheme);
+        return schemeMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public void forceDeleteScheme(Long id) {
+        Scheme scheme = schemeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found with ID: " + id));
+
+        List<Application> applications = applicationRepository.findBySchemeId(id);
+        log.info("[forceDeleteScheme] Initiating force delete for Scheme ID: {} [{}] with {} application(s)",
+                id, scheme.getName(), applications.size());
+
+        for (Application app : applications) {
+            Long appId = app.getId();
+
+            // 1. Delete Verifications & Verification History
+            Optional<Verification> verificationOpt = verificationRepository.findByApplicationId(appId);
+            if (verificationOpt.isPresent()) {
+                Verification v = verificationOpt.get();
+                verificationHistoryRepository.deleteAll(
+                        verificationHistoryRepository.findByVerificationIdOrderByActionDateAsc(v.getId()));
+                verificationRepository.delete(v);
+            }
+
+            // 2. Delete Workflow Audit Logs
+            workflowAuditLogRepository.deleteAll(
+                    workflowAuditLogRepository.findByApplicationIdOrderByOccurredAtAsc(appId));
+
+            // 3. Delete Application Documents (and physical files if present)
+            List<ApplicationDocument> docs = applicationDocumentRepository.findByApplicationId(appId);
+            for (ApplicationDocument doc : docs) {
+                if (doc.getStoragePath() != null && !doc.getStoragePath().isBlank()) {
+                    try {
+                        java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(doc.getStoragePath()));
+                    } catch (Exception e) {
+                        log.warn("Failed to delete physical file: {}", doc.getStoragePath());
+                    }
+                }
+            }
+            applicationDocumentRepository.deleteAll(docs);
+
+            // 4. Delete Disbursement Plan & Milestones
+            Optional<DisbursementPlan> planOpt = disbursementPlanRepository.findByApplicationId(appId);
+            if (planOpt.isPresent()) {
+                DisbursementPlan plan = planOpt.get();
+                disbursementMilestoneRepository.deleteAll(
+                        disbursementMilestoneRepository.findByDisbursementPlanIdOrderByMilestoneNumberAsc(plan.getId()));
+                disbursementPlanRepository.delete(plan);
+            }
+
+            // 5. Delete Disbursements
+            disbursementRepository.deleteAll(
+                    disbursementRepository.findByApplicationId(appId));
+
+            // 6. Delete Compliance
+            complianceRepository.deleteAll(
+                    complianceRepository.findByApplicationId(appId));
+
+            // 7. Delete Fund Utilization
+            fundUtilizationRepository.deleteAll(
+                    fundUtilizationRepository.findByApplicationId(appId));
+
+            // 8. Delete Routing Records
+            routingRecordRepository.deleteAll(
+                    routingRecordRepository.findByApplicationIdOrderByRoutedAtAsc(appId));
+
+            // 9. Delete Application
+            applicationRepository.delete(app);
+        }
+
+        // Finally delete the Scheme
+        schemeRepository.delete(scheme);
+        log.info("[forceDeleteScheme] Scheme ID: {} and all associated child records permanently deleted", id);
     }
 
     // =========================================================================

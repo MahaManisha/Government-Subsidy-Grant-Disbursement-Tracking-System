@@ -78,6 +78,14 @@ public interface UserService {
     void resetPassword(Long id, String newPassword, String confirmPassword);
 
     /**
+     * Purges dummy and test user accounts from the database.
+     *
+     * @param performingAdminUsername Username of the admin performing the purge
+     * @return count of deleted dummy users
+     */
+    int purgeDummyUsers(String performingAdminUsername);
+
+    /**
      * Retrieves a single user by username.
      *
      * @param username User's unique username

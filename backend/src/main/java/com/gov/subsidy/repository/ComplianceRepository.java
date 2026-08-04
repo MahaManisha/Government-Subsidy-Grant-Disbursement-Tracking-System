@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface ComplianceRepository extends JpaRepository<Compliance, Long> {
     List<Compliance> findByApplicationId(Long applicationId);
     List<Compliance> findByBeneficiaryId(Long beneficiaryId);
+    boolean existsByBeneficiaryId(Long beneficiaryId);
     List<Compliance> findByDisbursementId(Long disbursementId);
     Optional<Compliance> findByApplicationIdAndMilestoneNumber(Long applicationId, Integer milestoneNumber);
     boolean existsByApplicationIdAndMilestoneNumberAndStatus(Long applicationId, Integer milestoneNumber, ComplianceStatus status);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, Plus, Filter, UserCheck, ShieldAlert, Trash2, Edit3, Eye } from 'lucide-react';
+import { Search, Plus, Filter, UserCheck, ShieldAlert, Trash2, Edit3, Eye, AlertTriangle, X, Loader2 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast, ToastContainer } from 'react-toastify';
@@ -29,7 +29,7 @@ export default function BeneficiaryList() {
         setBeneficiaries([]);
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to load beneficiaries.');
+      toast.error(err.message || 'Failed to load beneficiaries.', { toastId: 'fetch-beneficiaries-error' });
     } finally {
       setLoading(false);
     }
@@ -39,20 +39,45 @@ export default function BeneficiaryList() {
     fetchBeneficiaries();
   }, []);
 
-  // Delete beneficiary
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to permanently delete the profile of ${name}?`)) {
-      return;
-    }
+  const [confirmDeleteBen, setConfirmDeleteBen] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const promptDelete = (id, name) => {
+    setConfirmDeleteBen({ id, name });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDeleteBen) return;
+    const { id, name } = confirmDeleteBen;
+    setDeleting(true);
 
     try {
       const response = await axiosInstance.delete(`/v1/beneficiaries/${id}`);
       if (response.data && response.data.success) {
-        toast.success(`Beneficiary profile of ${name} deleted successfully.`);
+        toast.success('Beneficiary deleted successfully.');
+        setConfirmDeleteBen(null);
         fetchBeneficiaries();
+      } else {
+        toast.error(response.data?.message || 'Failed to delete beneficiary.');
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to delete beneficiary.');
+      const status = err.status || err.response?.status;
+      if (status === 409) {
+        toast.error(err.message || 'This beneficiary cannot be permanently deleted because application or verification records exist.', { autoClose: 5000 });
+      } else if (status === 404) {
+        toast.error('Beneficiary not found.');
+      } else if (status === 403) {
+        toast.error('You do not have permission to delete beneficiaries.');
+      } else if (status === 500) {
+        toast.error('Unable to delete beneficiary due to a server error.');
+      } else if (!status && !err.response) {
+        toast.error('Unable to connect to the server.');
+      } else {
+        toast.error(err.message || 'Failed to delete beneficiary.');
+      }
+      setConfirmDeleteBen(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -222,7 +247,7 @@ export default function BeneficiaryList() {
                               <Edit3 className="h-4.5 w-4.5" />
                             </Link>
                             <button
-                              onClick={() => handleDelete(b.id, name)}
+                              onClick={() => promptDelete(b.id, name)}
                               className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
                               title="Delete Profile"
                             >
@@ -280,6 +305,47 @@ export default function BeneficiaryList() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteBen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 text-rose-600">
+                <AlertTriangle className="h-6 w-6" />
+                <h3 className="text-lg font-bold text-slate-800">Delete Beneficiary?</h3>
+              </div>
+              <button
+                onClick={() => setConfirmDeleteBen(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to delete <strong className="text-slate-800">"{confirmDeleteBen.name}"</strong>? If no dependent records exist, this action will permanently remove the beneficiary.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBen(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg shadow-rose-600/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Delete Beneficiary
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

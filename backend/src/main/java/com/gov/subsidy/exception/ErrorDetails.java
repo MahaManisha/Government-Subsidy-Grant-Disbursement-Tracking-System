@@ -14,6 +14,8 @@ import java.util.List;
 @Builder
 public class ErrorDetails {
 
+    private Integer status;
+    private String error;
     private LocalDateTime timestamp;
     private String message;
     private String details;

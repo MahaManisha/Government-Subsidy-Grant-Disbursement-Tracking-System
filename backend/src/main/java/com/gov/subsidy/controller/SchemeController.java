@@ -407,6 +407,11 @@ public class SchemeController {
                     responseCode = "404",
                     description = "Scheme not found with the given ID",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Conflict — scheme is associated with existing beneficiary applications and cannot be deleted",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BaseResponse.class))
             )
     })
     @PreAuthorize("hasRole('ADMIN')")
@@ -417,5 +422,52 @@ public class SchemeController {
         schemeService.deleteScheme(id);
         return ResponseEntity.ok(
                 BaseResponse.success(null, "Scheme with ID " + id + " deleted successfully"));
+    }
+
+    // =========================================================================
+    // PATCH /v1/schemes/{id}/deactivate — Deactivate Scheme
+    // =========================================================================
+
+    @PatchMapping("/{id}/deactivate")
+    @Operation(
+            summary = "Deactivate a scheme",
+            description = "Sets active=false and status=INACTIVE for the given scheme. " +
+                    "Existing applications remain intact, but new applications cannot select this scheme."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Scheme deactivated successfully"),
+            @ApiResponse(responseCode = "404", description = "Scheme not found")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<BaseResponse<SchemeDto>> deactivateScheme(
+            @Parameter(description = "Unique numeric ID of the scheme to deactivate", example = "1", required = true)
+            @PathVariable Long id) {
+
+        SchemeDto updated = schemeService.deactivateScheme(id);
+        return ResponseEntity.ok(
+                BaseResponse.success(updated, "Scheme deactivated successfully"));
+    }
+
+    // =========================================================================
+    // DELETE /v1/schemes/{id}/force — Force Delete Scheme Permanently (Admin Only)
+    // =========================================================================
+
+    @DeleteMapping("/{id}/force")
+    @Operation(
+            summary = "Force delete a scheme permanently along with all dependent applications and workflow data",
+            description = "Permanently deletes the scheme and cascades deletion across all child records (applications, documents, workflow audit logs, verifications, disbursements, compliance, etc.). Admin only."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Scheme and all associated records permanently deleted"),
+            @ApiResponse(responseCode = "404", description = "Scheme not found")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<BaseResponse<Void>> forceDeleteScheme(
+            @Parameter(description = "Unique numeric ID of the scheme to force delete", example = "1", required = true)
+            @PathVariable Long id) {
+
+        schemeService.forceDeleteScheme(id);
+        return ResponseEntity.ok(
+                BaseResponse.success(null, "Scheme with ID " + id + " and all associated records permanently deleted"));
     }
 }

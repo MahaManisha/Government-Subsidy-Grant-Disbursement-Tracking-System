@@ -39,10 +39,39 @@ axiosInstance.interceptors.response.use(
       window.dispatchEvent(new Event('auth-error'));
     }
     
+    // Distinguish HTTP server response errors from true network connection failures
+    const rawServerMessage = error.response?.data?.message || 
+                             error.response?.data?.data?.message;
+
+    // Filter out generic fallback strings from backend
+    const serverMessage = (rawServerMessage && rawServerMessage !== 'An unexpected error occurred') 
+      ? rawServerMessage 
+      : null;
+
+    let formattedMessage;
+    if (!error.response) {
+      formattedMessage = 'Network error. Please check the backend connection.';
+    } else if (status === 401) {
+      formattedMessage = 'Session expired. Please login again.';
+    } else if (status === 403) {
+      formattedMessage = 'You do not have permission to perform this action.';
+    } else if (status === 404) {
+      formattedMessage = serverMessage || 'Requested resource was not found.';
+    } else if (status === 409) {
+      formattedMessage = serverMessage || 'Cannot delete this scheme because it is associated with existing beneficiary applications. Deactivate the scheme instead.';
+    } else if (status === 500) {
+      formattedMessage = serverMessage || 'Unable to load the requested information.';
+    } else {
+      formattedMessage = serverMessage || `Server error (HTTP ${status})`;
+    }
+
     const customError = {
-      message: error.response?.data?.data?.message || error.response?.data?.message || 'A network error occurred. Please try again.',
-      validationErrors: error.response?.data?.data?.validationErrors || null,
-      status: status
+      message: formattedMessage,
+      validationErrors: error.response?.data?.data?.validationErrors || error.response?.data?.validationErrors || null,
+      status: status,
+      error: error.response?.data?.data?.error || error.response?.data?.error || (status === 409 ? 'SCHEME_IN_USE' : null),
+      response: error.response,
+      data: error.response?.data
     };
     return Promise.reject(customError);
   }

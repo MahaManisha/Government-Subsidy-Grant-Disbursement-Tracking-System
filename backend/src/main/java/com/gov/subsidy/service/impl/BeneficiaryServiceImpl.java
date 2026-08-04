@@ -8,10 +8,15 @@ import com.gov.subsidy.entity.User;
 import com.gov.subsidy.enums.BeneficiaryCategory;
 import com.gov.subsidy.enums.Gender;
 import com.gov.subsidy.enums.VerificationStatus;
+import com.gov.subsidy.exception.BeneficiaryHasDependenciesException;
 import com.gov.subsidy.exception.DuplicateResourceException;
 import com.gov.subsidy.exception.ResourceNotFoundException;
 import com.gov.subsidy.mapper.BeneficiaryMapper;
+import com.gov.subsidy.repository.ApplicationDocumentRepository;
+import com.gov.subsidy.repository.ApplicationRepository;
 import com.gov.subsidy.repository.BeneficiaryRepository;
+import com.gov.subsidy.repository.ComplianceRepository;
+import com.gov.subsidy.repository.FundUtilizationRepository;
 import com.gov.subsidy.repository.UserRepository;
 import com.gov.subsidy.service.BeneficiaryService;
 import org.springframework.stereotype.Service;
@@ -32,13 +37,25 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
     private final BeneficiaryRepository beneficiaryRepository;
     private final UserRepository userRepository;
     private final BeneficiaryMapper beneficiaryMapper;
+    private final ApplicationRepository applicationRepository;
+    private final ApplicationDocumentRepository applicationDocumentRepository;
+    private final ComplianceRepository complianceRepository;
+    private final FundUtilizationRepository fundUtilizationRepository;
 
     public BeneficiaryServiceImpl(BeneficiaryRepository beneficiaryRepository,
                                    UserRepository userRepository,
-                                   BeneficiaryMapper beneficiaryMapper) {
+                                   BeneficiaryMapper beneficiaryMapper,
+                                   ApplicationRepository applicationRepository,
+                                   ApplicationDocumentRepository applicationDocumentRepository,
+                                   ComplianceRepository complianceRepository,
+                                   FundUtilizationRepository fundUtilizationRepository) {
         this.beneficiaryRepository = beneficiaryRepository;
         this.userRepository = userRepository;
         this.beneficiaryMapper = beneficiaryMapper;
+        this.applicationRepository = applicationRepository;
+        this.applicationDocumentRepository = applicationDocumentRepository;
+        this.complianceRepository = complianceRepository;
+        this.fundUtilizationRepository = fundUtilizationRepository;
     }
 
     // =========================================================================
@@ -205,10 +222,20 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
 
     @Override
     public void deleteBeneficiary(Long id) {
-        if (!beneficiaryRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Beneficiary not found with ID: " + id);
+        Beneficiary beneficiary = beneficiaryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Beneficiary not found with ID: " + id));
+
+        boolean hasApplications = applicationRepository.existsByBeneficiaryId(id);
+        boolean hasDocs = applicationDocumentRepository.existsByBeneficiaryId(id);
+        boolean hasCompliance = complianceRepository.existsByBeneficiaryId(id);
+        boolean hasFundUtilization = fundUtilizationRepository.existsByBeneficiaryId(id);
+
+        if (hasApplications || hasDocs || hasCompliance || hasFundUtilization) {
+            throw new BeneficiaryHasDependenciesException(
+                    "This beneficiary cannot be permanently deleted because application or verification records exist.");
         }
-        beneficiaryRepository.deleteById(id);
+
+        beneficiaryRepository.delete(beneficiary);
     }
 
     @Override

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, Plus, Filter, CheckCircle, Clock, Trash2, Edit3, Eye, Calendar, Award } from 'lucide-react';
+import { Search, Plus, Filter, CheckCircle, Clock, Trash2, Edit3, Eye, Calendar, Award, AlertTriangle, X, Loader2 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast, ToastContainer } from 'react-toastify';
@@ -11,6 +11,13 @@ export default function SchemeList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Modal states
+  const [confirmDeleteScheme, setConfirmDeleteScheme] = useState(null);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [targetDeactivateScheme, setTargetDeactivateScheme] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,7 +40,6 @@ export default function SchemeList() {
       if (stored) {
         setSchemes(JSON.parse(stored));
       } else {
-        // Fallback default schemes if local storage is empty
         const defaultSchemes = [
           {
             id: 1,
@@ -87,19 +93,102 @@ export default function SchemeList() {
     fetchSchemes();
   }, []);
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to permanently delete the scheme "${name}"?`)) {
-      return;
-    }
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDeleteScheme) return;
+    const { id, name } = confirmDeleteScheme;
+    setDeleting(true);
 
     try {
       const response = await axiosInstance.delete(`/v1/schemes/${id}`);
       if (response.data && response.data.success) {
         toast.success(`Scheme "${name}" deleted successfully.`);
+        setConfirmDeleteScheme(null);
         fetchSchemes();
+      } else {
+        toast.error(response.data?.message || 'Failed to delete scheme.');
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to delete scheme.');
+      const status = err.status || err.response?.status;
+      const isSchemeInUse = status === 409 || err.error === 'SCHEME_IN_USE' || (err.message && err.message.toLowerCase().includes('associated'));
+      
+      if (isSchemeInUse) {
+        // Scheme in use: Close delete confirm modal and prompt deactivation
+        const schemeToDeactivate = confirmDeleteScheme;
+        setConfirmDeleteScheme(null);
+        setTargetDeactivateScheme(schemeToDeactivate);
+        setShowDeactivateModal(true);
+      } else if (status === 404) {
+        toast.error('Scheme not found.');
+      } else if (status === 403) {
+        toast.error('You do not have permission to delete this scheme.');
+      } else if (status === 500) {
+        toast.error('Unable to delete scheme due to a server error.');
+      } else {
+        toast.error(err.message || 'Failed to delete scheme.');
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!targetDeactivateScheme) return;
+    const { id, name } = targetDeactivateScheme;
+    setDeactivating(true);
+
+    try {
+      const response = await axiosInstance.patch(`/v1/schemes/${id}/deactivate`);
+      if (response.data && response.data.success) {
+        toast.success(`Scheme "${name}" deactivated successfully.`);
+        setShowDeactivateModal(false);
+        setTargetDeactivateScheme(null);
+        fetchSchemes();
+      } else {
+        toast.error(response.data?.message || 'Failed to deactivate scheme.');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error deactivating scheme.');
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
+  const [targetForceDeleteScheme, setTargetForceDeleteScheme] = useState(null);
+  const [forceDeleting, setForceDeleting] = useState(false);
+  const [forceProgressStep, setForceProgressStep] = useState('');
+
+  const handleForceDelete = async () => {
+    if (!targetForceDeleteScheme) return;
+    const { id, name } = targetForceDeleteScheme;
+    setForceDeleting(true);
+
+    try {
+      setForceProgressStep('Deleting Applications...');
+      await new Promise(r => setTimeout(r, 300));
+      setForceProgressStep('Deleting Documents...');
+      await new Promise(r => setTimeout(r, 300));
+      setForceProgressStep('Deleting Workflow...');
+      await new Promise(r => setTimeout(r, 300));
+      setForceProgressStep('Deleting Scheme...');
+
+      const response = await axiosInstance.delete(`/v1/schemes/${id}/force`);
+      if (response.data && response.data.success) {
+        setForceProgressStep('Done.');
+        toast.success('Scheme permanently deleted.');
+        setShowForceDeleteModal(false);
+        setShowDeactivateModal(false);
+        setTargetForceDeleteScheme(null);
+        setTargetDeactivateScheme(null);
+        fetchSchemes();
+      } else {
+        toast.error(response.data?.message || 'Failed to force delete scheme.');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error executing force deletion.');
+    } finally {
+      setForceDeleting(false);
+      setForceProgressStep('');
     }
   };
 
@@ -257,8 +346,9 @@ export default function SchemeList() {
                             <Edit3 className="h-4.5 w-4.5" />
                           </Link>
                           <button
-                            onClick={() => handleDelete(s.id, s.name)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                            id={`btn-delete-scheme-${s.id}`}
+                            onClick={() => setConfirmDeleteScheme(s)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all cursor-pointer"
                             title="Delete Scheme"
                           >
                             <Trash2 className="h-4.5 w-4.5" />
@@ -314,6 +404,195 @@ export default function SchemeList() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteScheme && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+                <h3 className="text-lg font-bold">Delete Scheme?</h3>
+              </div>
+              <button
+                onClick={() => setConfirmDeleteScheme(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-slate-800">"{confirmDeleteScheme.name}"</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteScheme(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg shadow-rose-600/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Delete Scheme
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate Scheme Prompt Modal (HTTP 409 Conflict) */}
+      {showDeactivateModal && targetDeactivateScheme && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-amber-600">
+                <AlertTriangle className="h-5 w-5" />
+                <h3 className="text-lg font-bold">Scheme Cannot Be Deleted</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDeactivateModal(false);
+                  setTargetDeactivateScheme(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="text-sm text-slate-600 space-y-2 leading-relaxed">
+              <p>
+                <strong className="text-slate-800">"{targetDeactivateScheme.name}"</strong> already has beneficiary applications associated with it.
+              </p>
+              <p>
+                To preserve application and verification history, this scheme cannot be permanently deleted.
+              </p>
+              <p className="font-semibold text-slate-700">
+                You can deactivate the scheme to prevent new applications.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeactivateModal(false);
+                  setTargetDeactivateScheme(null);
+                }}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const schemeToForce = targetDeactivateScheme;
+                  setShowDeactivateModal(false);
+                  setTargetDeactivateScheme(null);
+                  setTargetForceDeleteScheme(schemeToForce);
+                  setShowForceDeleteModal(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-200 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Force Delete Permanently
+              </button>
+              <button
+                type="button"
+                onClick={handleDeactivate}
+                disabled={deactivating}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {deactivating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                Deactivate Scheme
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Force Delete Permanently Warning Modal */}
+      {showForceDeleteModal && targetForceDeleteScheme && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 border border-rose-200">
+            <div className="flex items-center justify-between border-b border-rose-100 pb-3">
+              <div className="flex items-center gap-2 text-rose-600">
+                <AlertTriangle className="h-6 w-6" />
+                <h3 className="text-xl font-black uppercase tracking-wide">WARNING</h3>
+              </div>
+              <button
+                onClick={() => {
+                  if (!forceDeleting) {
+                    setShowForceDeleteModal(false);
+                    setTargetForceDeleteScheme(null);
+                  }
+                }}
+                disabled={forceDeleting}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="text-sm text-slate-700 space-y-3 leading-relaxed">
+              <p className="font-semibold text-slate-800">
+                This will permanently delete:
+              </p>
+
+              <ul className="space-y-1.5 text-xs text-slate-600 pl-2 font-medium">
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Scheme</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>All applications</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Uploaded application documents</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Eligibility records</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Verification workflow</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Workflow audit logs</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Disbursement records</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Notifications</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Any child records referencing this scheme</li>
+              </ul>
+
+              <p className="font-bold text-rose-600 pt-1">
+                This action cannot be undone.
+              </p>
+
+              {forceDeleting && forceProgressStep && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-rose-700 font-bold text-xs animate-pulse">
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  <span>{forceProgressStep}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForceDeleteModal(false);
+                  setTargetForceDeleteScheme(null);
+                }}
+                disabled={forceDeleting}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleForceDelete}
+                disabled={forceDeleting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg shadow-rose-600/20 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {forceDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Delete Everything
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

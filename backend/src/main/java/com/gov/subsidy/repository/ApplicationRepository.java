@@ -20,7 +20,11 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     List<Application> findByBeneficiaryId(Long beneficiaryId);
 
+    boolean existsByBeneficiaryId(Long beneficiaryId);
+
     List<Application> findBySchemeId(Long schemeId);
+
+    boolean existsBySchemeId(Long schemeId);
 
     List<Application> findByWorkflowStatus(ApplicationStatus workflowStatus);
 

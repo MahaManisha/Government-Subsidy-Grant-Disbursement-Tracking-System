@@ -3,6 +3,7 @@ package com.gov.subsidy.config;
 import com.gov.subsidy.security.CustomAccessDeniedHandler;
 import com.gov.subsidy.security.CustomAuthenticationEntryPoint;
 import com.gov.subsidy.security.CustomUserDetailsService;
+import com.gov.subsidy.security.FlexiblePasswordEncoder;
 import com.gov.subsidy.security.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -79,7 +80,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new FlexiblePasswordEncoder();
     }
 
     @Bean
@@ -119,10 +120,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*")); // Permit all origins
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

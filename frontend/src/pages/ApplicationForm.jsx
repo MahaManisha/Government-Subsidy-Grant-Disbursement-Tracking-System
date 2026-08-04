@@ -92,9 +92,18 @@ export default function ApplicationForm() {
           setBeneficiaries([profile]);
           setValue('beneficiaryId', profile.id);
         }
+        const filterActiveSchemes = (list) => {
+          const todayStr = new Date().toISOString().split('T')[0];
+          return (list || []).filter(s => {
+            if (!s.active || s.status !== 'ACTIVE') return false;
+            if (s.startDate && s.startDate > todayStr) return false;
+            if (s.endDate && s.endDate < todayStr) return false;
+            return true;
+          });
+        };
+
         if (schemeRes.data && schemeRes.data.success) {
-          const activeSchemes = (schemeRes.data.data || []).filter(s => s.active && s.status === 'ACTIVE');
-          setSchemes(activeSchemes);
+          setSchemes(filterActiveSchemes(schemeRes.data.data));
         }
       } else {
         const [benRes, schemeRes] = await Promise.all([
@@ -105,8 +114,7 @@ export default function ApplicationForm() {
           setBeneficiaries(benRes.data.data || []);
         }
         if (schemeRes.data && schemeRes.data.success) {
-          const activeSchemes = (schemeRes.data.data || []).filter(s => s.active && s.status === 'ACTIVE');
-          setSchemes(activeSchemes);
+          setSchemes(filterActiveSchemes(schemeRes.data.data));
         }
       }
     } catch (err) {

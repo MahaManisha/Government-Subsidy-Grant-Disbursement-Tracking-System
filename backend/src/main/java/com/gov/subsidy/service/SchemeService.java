@@ -76,6 +76,24 @@ public interface SchemeService {
      *
      * @param id the ID of the scheme to delete
      * @throws com.gov.subsidy.exception.ResourceNotFoundException if no scheme exists with the given ID
+     * @throws com.gov.subsidy.exception.SchemeInUseException       if the scheme is referenced by beneficiary applications
      */
     void deleteScheme(Long id);
+
+    /**
+     * Deactivates an existing scheme (sets active=false and status=INACTIVE).
+     *
+     * @param id the ID of the scheme to deactivate
+     * @return the updated scheme represented as a {@link SchemeDto}
+     * @throws com.gov.subsidy.exception.ResourceNotFoundException if no scheme exists with the given ID
+     */
+    SchemeDto deactivateScheme(Long id);
+
+    /**
+     * Force deletes a scheme and cascades deletion across all dependent applications,
+     * application documents, eligibility records, verifications, workflow logs, and disbursements.
+     *
+     * @param id the ID of the scheme to force delete
+     */
+    void forceDeleteScheme(Long id);
 }

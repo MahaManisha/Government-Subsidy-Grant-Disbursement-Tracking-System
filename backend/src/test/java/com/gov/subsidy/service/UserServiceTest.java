@@ -111,7 +111,7 @@ public class UserServiceTest {
                 RoleType.ROLE_DISTRICT_OFFICER,
                 RoleType.ROLE_FINANCE_OFFICER
         );
-        when(userRepository.findUsersByRoles(staffRoles)).thenReturn(List.of(staffUser));
+        when(userRepository.findAll()).thenReturn(List.of(staffUser));
         UserDto dto = UserDto.builder().username("admin_staff").build();
         when(userMapper.toDto(staffUser)).thenReturn(dto);
 
@@ -120,7 +120,7 @@ public class UserServiceTest {
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals("admin_staff", result.get(0).getUsername());
-        verify(userRepository).findUsersByRoles(staffRoles);
+        verify(userRepository).findAll();
     }
 
     @Test

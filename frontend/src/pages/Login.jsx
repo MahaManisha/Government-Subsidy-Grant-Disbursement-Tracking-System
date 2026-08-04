@@ -192,6 +192,32 @@ export default function Login() {
                 Register Here
               </Link>
             </div>
+
+            {/* Demo Credentials Box */}
+            <div className="mt-6 rounded-2xl bg-slate-950/70 border border-slate-800 p-4 text-xs text-slate-400 space-y-2">
+              <div className="flex items-center justify-between text-slate-300 font-medium pb-1 border-b border-slate-800/60">
+                <span>Default System Accounts</span>
+                <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-mono">Demo Ready</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 font-mono text-[11px]">
+                <div className="flex justify-between items-center text-slate-300">
+                  <span><strong className="text-blue-400 font-sans">Admin:</strong> admin</span>
+                  <span className="text-slate-400">admin123</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span><strong className="text-emerald-400 font-sans">Field Officer:</strong> field_officer</span>
+                  <span className="text-slate-400">password123</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span><strong className="text-purple-400 font-sans">District Officer:</strong> district_officer</span>
+                  <span className="text-slate-400">password123</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span><strong className="text-amber-400 font-sans">Finance Officer:</strong> finance_officer</span>
+                  <span className="text-slate-400">password123</span>
+                </div>
+              </div>
+            </div>
           </form>
 
         </div>
