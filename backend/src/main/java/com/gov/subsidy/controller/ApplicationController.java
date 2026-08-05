@@ -262,4 +262,12 @@ public class ApplicationController {
         java.util.List<ApplicationDto> result = applicationService.getMyApplications();
         return ResponseEntity.ok(BaseResponse.success(result, "My applications retrieved successfully"));
     }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get application details by ID", description = "Retrieves full details of a specific application.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FIELD_OFFICER', 'DISTRICT_OFFICER', 'FINANCE_OFFICER', 'BENEFICIARY')")
+    public ResponseEntity<BaseResponse<ApplicationDto>> getApplicationById(@PathVariable Long id) {
+        ApplicationDto result = applicationService.getApplicationById(id);
+        return ResponseEntity.ok(BaseResponse.success(result, "Application details retrieved successfully"));
+    }
 }

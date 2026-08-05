@@ -54,4 +54,12 @@ public interface ApplicationService {
      * @return list of applications belonging to the logged-in beneficiary
      */
     java.util.List<ApplicationDto> getMyApplications();
+    
+    /**
+     * Retrieves an application by its ID.
+     *
+     * @param id the application ID
+     * @return the application details
+     */
+    ApplicationDto getApplicationById(Long id);
 }

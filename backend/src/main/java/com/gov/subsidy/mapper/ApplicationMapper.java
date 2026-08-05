@@ -55,6 +55,13 @@ public class ApplicationMapper implements GenericMapper<Application, Application
                 .updatedAt(entity.getUpdatedAt())
                 .createdBy(entity.getCreatedBy())
                 .updatedBy(entity.getUpdatedBy())
+                .disbursement(entity.getDisbursement() != null ? com.gov.subsidy.dto.DisbursementDto.builder()
+                        .id(entity.getDisbursement().getId())
+                        .amount(entity.getDisbursement().getAmount())
+                        .status(entity.getDisbursement().getStatus() != null ? entity.getDisbursement().getStatus().name() : null)
+                        .transactionId(entity.getDisbursement().getTransactionId())
+                        .disbursementDate(entity.getDisbursement().getDisbursementDate())
+                        .build() : null)
                 .build();
     }
 

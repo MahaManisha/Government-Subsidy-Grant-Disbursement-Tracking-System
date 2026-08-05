@@ -24,6 +24,11 @@ public enum WorkflowEvent {
 
     // ── Rejection ────────────────────────────────────────────────────────────
     APPLICATION_REJECTED,       // Application was rejected at any stage
+    AUTO_ELIGIBILITY_REJECTION, // Automated engine rejected the application based on eligibility criteria
+
+    // ── Disbursement ─────────────────────────────────────────────────────────
+    APPLICATION_DISBURSED,      // Funds were disbursed
+
 
     // ── Notification ─────────────────────────────────────────────────────────
     NOTIFICATION_SENT,          // Notification placeholder fired

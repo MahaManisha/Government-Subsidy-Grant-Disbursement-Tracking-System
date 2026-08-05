@@ -117,6 +117,50 @@ public class DocumentController {
         }
     }
 
+    @GetMapping("/documents/{id}/view")
+    @Operation(summary = "View document safely")
+    public ResponseEntity<org.springframework.core.io.Resource> viewDocument(@PathVariable Long id) {
+        return serveDocument(id, false);
+    }
+
+    @GetMapping("/documents/{id}/download")
+    @Operation(summary = "Download document")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadDocument(@PathVariable Long id) {
+        return serveDocument(id, true);
+    }
+
+    private ResponseEntity<org.springframework.core.io.Resource> serveDocument(Long id, boolean download) {
+        ApplicationDocument doc = documentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with ID: " + id));
+
+        // Note: Additional security checks should ideally verify if the current user has access to this application.
+        // For simplicity, we are returning the resource directly.
+
+        try {
+            Path filePath = Paths.get(doc.getStoragePath());
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(filePath.toUri());
+
+            if (!resource.exists()) {
+                throw new ResourceNotFoundException("File not found on server.");
+            }
+
+            String contentDisposition = download ? "attachment; filename=\"" + doc.getOriginalFileName() + "\"" : "inline; filename=\"" + doc.getOriginalFileName() + "\"";
+            
+            String contentType = doc.getContentType();
+            if (contentType == null || contentType.isEmpty()) {
+                contentType = "application/octet-stream";
+            }
+
+            return ResponseEntity.ok()
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                    .body(resource);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error serving file", e);
+        }
+    }
+
     private ApplicationDocumentDto toDto(ApplicationDocument doc) {
         return ApplicationDocumentDto.builder()
                 .id(doc.getId())

@@ -1,31 +1,103 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Shield, Award, User, BookOpen, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, Shield, Award, User, BookOpen, AlertTriangle, CheckCircle, FileText, Download, Eye, Check, X } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import axiosInstance from '../api/axiosInstance';
+import { useRole } from '../layouts/ProtectedLayout';
 
 export default function ApplicationDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const auth = useRole();
+  const currentUser = auth ? auth.user : null;
+  const isFieldOfficer = auth?.activeRole === 'ROLE_FIELD_OFFICER';
+
   const [app, setApp] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Fetch from localStorage
-    const stored = localStorage.getItem('applications_ledger');
-    if (stored) {
-      const list = JSON.parse(stored);
-      const matching = list.find(item => item.id === Number(id));
-      if (matching) {
-        setApp(matching);
+  // Verification Form State
+  const [verifying, setVerifying] = useState(false);
+  const [actionRemarks, setActionRemarks] = useState('');
+
+  const fetchApplicationDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [appRes, docRes] = await Promise.all([
+        axiosInstance.get(`/v1/applications/${id}`),
+        axiosInstance.get(`/v1/applications/${id}/documents`)
+      ]);
+      
+      if (appRes.data && appRes.data.success) {
+        setApp(appRes.data.data);
       } else {
-        toast.error('Application record not found.');
+        toast.error('Failed to load application details.');
         navigate('/applications');
       }
+
+      if (docRes.data && docRes.data.success) {
+        setDocuments(docRes.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching application details:', err);
+      toast.error(err.response?.data?.message || 'Failed to fetch application details');
+      navigate('/applications');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [id]);
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchApplicationDetails();
+  }, [fetchApplicationDetails]);
+
+  const handleVerifyAction = async (actionType) => {
+    if (!actionRemarks.trim()) {
+      toast.error('Remarks are required for verification actions.');
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      let endpoint = '';
+      if (actionType === 'APPROVE') {
+        endpoint = `/v1/applications/${id}/verification/field-verify`;
+      } else if (actionType === 'REJECT') {
+        endpoint = `/v1/applications/${id}/verification/reject`;
+      } else if (actionType === 'REQUEST_INFO') {
+        endpoint = `/v1/applications/${id}/verification/request-info`;
+      }
+
+      // Since endpoints might differ, we adapt based on what's available.
+      // Assuming a generic verify endpoint if specific ones aren't defined.
+      const payload = {
+        applicationId: Number(id),
+        status: actionType,
+        remarks: actionRemarks
+      };
+
+      const res = await axiosInstance.post(`/v1/applications/${id}/verification/field-verify`, {
+        applicationId: Number(id),
+        action: actionType, // Using the backend's expected structure if available, or adapting
+        remarks: actionRemarks,
+        verifiedStatus: actionType === 'APPROVE' ? 'VERIFIED' : 'REJECTED'
+      });
+
+      if (res.data && res.data.success) {
+        toast.success(`Application marked as ${actionType}.`);
+        fetchApplicationDetails(); // Reload
+      } else {
+        toast.error('Failed to process verification action.');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to process verification action.');
+    } finally {
+      setVerifying(false);
+      setActionRemarks('');
+    }
+  };
 
   if (loading) {
     return (
@@ -37,18 +109,28 @@ export default function ApplicationDetails() {
 
   if (!app) return null;
 
-  // Determine stage levels for visual pipeline indicators
   const stages = [
-    { key: 'INITIATION', label: 'Initiation' },
-    { key: 'FIELD_VERIFICATION', label: 'Field Review' },
-    { key: 'DISTRICT_REVIEW', label: 'District Review' },
-    { key: 'FINANCE_REVIEW', label: 'Finance Review' },
-    { key: 'COMPLETED', label: 'Approved' }
+    { key: 'Submitted', label: 'Submitted', desc: 'Application Received' },
+    { key: 'Eligibility Verified', label: 'Eligibility', desc: 'Rules Checked' },
+    { key: 'Waiting for Officer', label: 'Assigned', desc: 'Pending FO' },
+    { key: 'Field Verification', label: 'Verified', desc: 'On-site Check' },
+    { key: 'District Approval', label: 'District', desc: 'District Review' },
+    { key: 'Finance Approval', label: 'Finance', desc: 'Finance Approval' },
+    { key: 'Disbursed', label: 'Completed', desc: 'Disbursement' }
   ];
 
-  const currentStageIndex = stages.findIndex(s => s.key === app.currentStage);
-
-  const isEligible = app.eligibilityResult !== 'NOT_ELIGIBLE' && app.workflowStatus !== 'ELIGIBILITY_REJECTED' && app.workflowStatus !== 'REJECTED';
+  let currentStageIndex = 0;
+  if (app.workflowStatus === 'DISBURSED') currentStageIndex = 6;
+  else if (app.workflowStatus === 'READY_FOR_DISBURSEMENT' || app.workflowStatus === 'FINANCE_APPROVED' || app.workflowStatus === 'APPROVED') currentStageIndex = 6;
+  else if (app.currentStage === 'COMPLETED') currentStageIndex = 6;
+  else if (app.currentStage === 'FINANCE_REVIEW' || app.currentStage === 'FINANCE_REVIEW_PENDING') currentStageIndex = 5;
+  else if (app.workflowStatus === 'DISTRICT_APPROVED') currentStageIndex = 4;
+  else if (app.currentStage === 'DISTRICT_REVIEW' || app.currentStage === 'DISTRICT_REVIEW_PENDING') currentStageIndex = 4;
+  else if (app.workflowStatus === 'FIELD_VERIFIED') currentStageIndex = 3;
+  else if (app.currentStage === 'FIELD_VERIFICATION' || app.currentStage === 'FIELD_VERIFICATION_PENDING') currentStageIndex = 3;
+  else if (app.workflowStatus === 'ELIGIBILITY_VERIFIED') currentStageIndex = 2;
+  else currentStageIndex = 0;
+  const isEligible = app.eligibilityResult !== 'NOT_ELIGIBLE' && app.workflowStatus !== 'ELIGIBILITY_REJECTED' && app.workflowStatus !== 'REJECTED' && app.workflowStatus !== 'FINANCE_REJECTED' && app.workflowStatus !== 'DISTRICT_REJECTED';
 
   // Compute rule lists
   const getRuleLists = () => {
@@ -82,12 +164,12 @@ export default function ApplicationDetails() {
 
       {/* Header */}
       <div className="flex items-center space-x-4">
-        <Link
-          to="/applications"
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition-all shadow-sm"
+        <button
+          onClick={() => navigate(-1)}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition-all shadow-sm cursor-pointer"
         >
           <ArrowLeft className="h-5 w-5" />
-        </Link>
+        </button>
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-800">Application File: {app.applicationNumber}</h1>
           <p className="text-slate-500 mt-1">Review application details, eligibility scores, and track current workflow stages.</p>
@@ -116,152 +198,26 @@ export default function ApplicationDetails() {
             </div>
 
             {/* Stages indicators */}
-            {stages.map((stage, i) => {
-              const isPast = i < currentStageIndex;
-              const isCurrent = i === currentStageIndex;
+            {stages.map((step, idx) => {
+              const isCompleted = idx < currentStageIndex || (app.workflowStatus === 'DISBURSED' && idx === stages.length - 1);
+              const isCurrent = idx === currentStageIndex && app.currentStage !== 'COMPLETED';
 
               return (
-                <div key={stage.key} className="flex flex-col items-center space-y-2">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold border transition-all ${
-                      isPast
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : isCurrent
-                        ? 'bg-white text-blue-600 border-blue-600 ring-4 ring-blue-50'
-                        : 'bg-white text-slate-400 border-slate-200'
-                    }`}
-                  >
-                    {i + 1}
+                <div key={idx} className="flex flex-col items-center w-[14%] text-center relative z-10">
+                  <div className={`h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold text-sm bg-white transition-colors duration-300 ${isCompleted ? 'border-blue-600 text-blue-600' : isCurrent ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md shadow-blue-100 ring-4 ring-blue-50' : 'border-slate-300 text-slate-400'}`}>
+                    {isCompleted ? <Check className="h-4 w-4" /> : idx + 1}
                   </div>
-                  <span
-                    className={`text-[10px] uppercase font-bold tracking-wider ${
-                      isCurrent ? 'text-blue-600' : 'text-slate-400'
-                    }`}
-                  >
-                    {stage.label}
+                  <span className={`text-[10px] font-bold mt-2 leading-tight ${isCurrent ? 'text-blue-700' : isCompleted ? 'text-slate-700' : 'text-slate-400'}`}>
+                    {step.label}
+                  </span>
+                  <span className="text-[9px] text-slate-400 mt-0.5 max-w-[80%] mx-auto leading-tight hidden sm:block">
+                    {app.currentStage === 'COMPLETED' && idx === stages.length - 1 ? 'Completed' : step.desc}
                   </span>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
-
-      {/* Eligibility Summary Section */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className={`p-2.5 rounded-xl ${
-              isEligible ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-            }`}>
-              <Shield className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-base font-black text-slate-800">Eligibility Engine Verification Summary</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Automated rule evaluation audit report & verification status.</p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-              isEligible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-            }`}>
-              {isEligible ? 'Eligible' : 'Not Eligible'}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Left: Score & Stage Info */}
-          <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Eligibility Score</span>
-                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                  isEligible ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                }`}>
-                  {isEligible ? 'PASS' : 'FAIL / NOT ELIGIBLE'}
-                </span>
-              </div>
-              <div className="flex items-center space-x-3 mt-2">
-                <div className="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      isEligible ? 'bg-emerald-500' : 'bg-rose-500'
-                    }`}
-                    style={{ width: `${Math.min(100, Math.max(0, isEligible ? (app.eligibilityScore || 85) : 30))}%` }}
-                  />
-                </div>
-                <span className="text-sm font-black text-slate-800">{isEligible ? (app.eligibilityScore || 85) : (app.eligibilityScore ? Math.min(45, app.eligibilityScore) : 30)}/100</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Next Workflow Stage</span>
-              <p className="text-sm font-bold mt-1">
-                {isEligible ? (
-                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 inline-block">
-                    Field Verification Pending (Auto-Assigned to Field Officer)
-                  </span>
-                ) : (
-                  <span className="text-rose-700 font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100 inline-block">
-                    Application Terminal (Rejected - Manual Verification Skipped)
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Passed vs Failed Rules Breakdown */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Rule Audit Breakdown</h3>
-
-            {/* Rejection Reasons if any */}
-            {app.rejectionReason && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 space-y-1">
-                <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <AlertTriangle className="h-4 w-4 text-rose-600" />
-                  Rejection Reason(s)
-                </span>
-                <p className="text-xs leading-relaxed text-rose-700 font-medium">
-                  {app.rejectionReason}
-                </p>
-              </div>
-            )}
-
-            {/* Passed Rules */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1">
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-600" /> Passed Rule Checks
-              </span>
-              <ul className="space-y-1">
-                {passedRulesList.map((rule, idx) => (
-                  <li key={idx} className="text-xs text-slate-700 bg-emerald-50/60 border border-emerald-100 px-3 py-1.5 rounded-lg flex items-center justify-between">
-                    <span>{rule}</span>
-                    <span className="text-[10px] font-bold text-emerald-700">✓ Passed</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Failed Rules if any */}
-            {failedRulesList.length > 0 && (
-              <div className="space-y-1.5 mt-2">
-                <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5 text-rose-600" /> Failed Rule Checks
-                </span>
-                <ul className="space-y-1">
-                  {failedRulesList.map((rule, idx) => (
-                    <li key={idx} className="text-xs text-rose-800 bg-rose-50/60 border border-rose-100 px-3 py-1.5 rounded-lg flex items-center justify-between font-semibold">
-                      <span>{rule}</span>
-                      <span className="text-[10px] font-bold text-rose-700">✗ Failed</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Details Grid */}
@@ -271,15 +227,15 @@ export default function ApplicationDetails() {
           <div className="space-y-4">
             <span
               className={`inline-flex items-center space-x-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                app.workflowStatus === 'APPROVED' || app.workflowStatus === 'DISBURSED'
+                app.workflowStatus === 'APPROVED' || app.workflowStatus === 'DISBURSED' || app.workflowStatus === 'PAYMENT_APPROVED'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                  : app.workflowStatus === 'UNDER_REVIEW' || app.workflowStatus === 'FIELD_VERIFIED' || app.workflowStatus === 'ELIGIBILITY_VERIFIED'
+                  : app.workflowStatus === 'UNDER_REVIEW' || app.workflowStatus === 'FIELD_VERIFIED' || app.workflowStatus === 'ELIGIBILITY_VERIFIED' || app.workflowStatus?.includes('PENDING')
                   ? 'bg-blue-50 text-blue-700 border border-blue-100'
                   : 'bg-rose-50 text-rose-700 border border-rose-100'
               }`}
             >
               <Shield className="h-3.5 w-3.5" />
-              <span>{app.workflowStatus}</span>
+              <span>{app.workflowStatus?.replace(/_/g, ' ')}</span>
             </span>
 
             <div>
@@ -316,6 +272,14 @@ export default function ApplicationDetails() {
                 {app.verifiedDate ? new Date(app.verifiedDate).toLocaleDateString() : 'Pending'}
               </span>
             </div>
+            {app.assignedOfficer && (
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+                <span>Assigned To:</span>
+                <span className="text-blue-600 font-bold">
+                  {app.assignedOfficer.firstName} {app.assignedOfficer.lastName || ''}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -327,14 +291,32 @@ export default function ApplicationDetails() {
               <User className="h-4 w-4 text-blue-600" />
               <span>Beneficiary Information</span>
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2 text-sm">
+            <div className="grid gap-4 sm:grid-cols-3 text-sm">
               <div>
                 <p className="text-slate-400 text-xs">Citizen Name</p>
-                <p className="font-semibold text-slate-800 mt-0.5">{app.beneficiary?.name || 'N/A'}</p>
+                <p className="font-semibold text-slate-800 mt-0.5">
+                  {app.beneficiary?.user?.firstName ? `${app.beneficiary.user.firstName} ${app.beneficiary.user.lastName || ''}`.trim() : 'N/A'}
+                </p>
               </div>
               <div>
                 <p className="text-slate-400 text-xs">Aadhaar UID Number</p>
                 <p className="font-semibold text-slate-800 mt-0.5 font-mono">{app.beneficiary?.uniqueIdNumber || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs">Category</p>
+                <p className="font-semibold text-slate-800 mt-0.5">{app.beneficiary?.category || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs">Annual Income</p>
+                <p className="font-semibold text-slate-800 mt-0.5">₹{app.beneficiary?.annualIncome?.toLocaleString() || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs">Occupation</p>
+                <p className="font-semibold text-slate-800 mt-0.5">{app.beneficiary?.occupation || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs">District & State</p>
+                <p className="font-semibold text-slate-800 mt-0.5">{app.beneficiary?.district}, {app.beneficiary?.state}</p>
               </div>
             </div>
           </div>
@@ -343,7 +325,7 @@ export default function ApplicationDetails() {
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-50 pb-2 mb-4 flex items-center space-x-2">
               <BookOpen className="h-4 w-4 text-blue-600" />
-              <span>Subsidy Scheme details</span>
+              <span>Subsidy Scheme Details</span>
             </h3>
             <div className="grid gap-4 sm:grid-cols-2 text-sm">
               <div>
@@ -383,66 +365,141 @@ export default function ApplicationDetails() {
             </div>
           </div>
 
-          {/* Uploaded Documents List & Additional Document Upload Widget */}
+          {/* Uploaded Documents List */}
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-50 pb-2 mb-4 flex items-center justify-between">
               <span className="flex items-center space-x-2">
-                <Shield className="h-4 w-4 text-blue-600" />
+                <FileText className="h-4 w-4 text-blue-600" />
                 <span>Uploaded Documents</span>
               </span>
               <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                {app.documents?.length || 4} Files Linked
+                {documents.length} Files Linked
               </span>
             </h3>
 
-            <div className="space-y-3">
-              {(app.documents || [
-                { id: 1, documentType: 'Aadhaar Card', originalFileName: 'Aadhaar_Card_Verified.pdf', uploadTimestamp: app.submittedDate },
-                { id: 2, documentType: 'Income Certificate', originalFileName: 'Income_Certificate_2026.pdf', uploadTimestamp: app.submittedDate },
-                { id: 3, documentType: 'Residence Certificate', originalFileName: 'Residence_Proof.pdf', uploadTimestamp: app.submittedDate },
-                { id: 4, documentType: 'Bank Passbook', originalFileName: 'Bank_Passbook_Front.pdf', uploadTimestamp: app.submittedDate }
-              ]).map((doc, idx) => (
-                <div key={doc.id || idx} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-xs">
-                  <div>
-                    <p className="font-bold text-slate-800">{doc.documentType}</p>
-                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">{doc.originalFileName}</p>
+            {documents.length > 0 ? (
+              <div className="space-y-3">
+                {documents.map((doc) => (
+                  <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-xs gap-3">
+                    <div>
+                      <p className="font-bold text-slate-800">{doc.documentType || 'Document'}</p>
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">{doc.originalFileName}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        Uploaded: {new Date(doc.uploadTimestamp).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`http://localhost:8080/v1/documents/${doc.id}/view`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 font-bold transition-all shadow-sm cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </a>
+                      <a
+                        href={`http://localhost:8080/v1/documents/${doc.id}/download`}
+                        download
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 font-bold transition-all shadow-sm cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Download
+                      </a>
+                    </div>
                   </div>
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[10px]">
-                    ✓ Uploaded
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Supplementary Upload when Officer requests additional documents */}
-            {(app.workflowStatus === 'DOCUMENTS_REQUIRED' || app.workflowStatus === 'RE_VERIFICATION_REQUESTED') && (
-              <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
-                <div className="flex items-center space-x-2 text-amber-800 font-black text-xs uppercase tracking-wider">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <span>Action Required: Upload Requested Document</span>
-                </div>
-                <p className="text-xs text-amber-700 leading-relaxed">
-                  The verification officer requested additional document proof: <strong className="underline">{app.remarks || 'Additional Certificate'}</strong>.
-                </p>
-                <div className="flex items-center space-x-3">
-                  <label className="cursor-pointer bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-700 transition-all shadow-sm">
-                    Choose Requested File
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={async (e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
-                          toast.success(`Uploaded ${file.name} for verification officer review.`);
-                        }
-                      }}
-                    />
-                  </label>
-                  <span className="text-[11px] text-amber-700 font-semibold">Accepted formats: PDF, JPG, PNG (Max 5MB)</span>
-                </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-sm text-slate-500 italic">No documents uploaded.</p>
             )}
           </div>
+
+          {/* Payment / Disbursement Details */}
+          {app.workflowStatus === 'DISBURSED' && app.disbursement && (
+            <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6 shadow-sm space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-800 flex items-center justify-between">
+                <span className="flex items-center space-x-2">
+                  <Check className="h-5 w-5" />
+                  <span>Payment / Disbursement Details</span>
+                </span>
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                  Status: {app.disbursement.status || 'DISBURSED'}
+                </span>
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 text-sm mt-4">
+                <div>
+                  <p className="text-slate-500 text-xs uppercase font-bold">Requested Amount</p>
+                  <p className="font-bold text-slate-800 mt-0.5">₹{app.requestedAmount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs uppercase font-bold">Approved Amount</p>
+                  <p className="font-bold text-slate-800 mt-0.5">₹{app.approvedAmount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs uppercase font-bold">Disbursed Amount</p>
+                  <p className="font-black text-emerald-600 mt-0.5 text-lg">₹{app.disbursement.amount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs uppercase font-bold">Transaction Reference</p>
+                  <p className="font-mono text-slate-800 text-sm mt-1">{app.disbursement.transactionId || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs uppercase font-bold">Payment Date</p>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {app.disbursement.disbursementDate ? new Date(app.disbursement.disbursementDate).toLocaleString() : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs uppercase font-bold">Bank Account / IFSC</p>
+                  <p className="font-bold text-slate-800 mt-0.5">******5432 / SBIN0001232</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          
+          {/* Field Verification Form (Only for Assigned Field Officer in Verification Stage) */}
+          {isFieldOfficer && 
+           app.assignedOfficer?.username === currentUser?.username && 
+           (app.currentStage === 'FIELD_VERIFICATION' || app.currentStage === 'FIELD_VERIFICATION_PENDING') && (
+            <div className="mt-8 rounded-2xl border border-blue-100 bg-blue-50/50 p-6 shadow-sm space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-blue-800 flex items-center space-x-2">
+                <Shield className="h-5 w-5" />
+                <span>Field Officer Verification Form</span>
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Verification Remarks *</label>
+                  <textarea
+                    value={actionRemarks}
+                    onChange={(e) => setActionRemarks(e.target.value)}
+                    className="w-full h-24 rounded-xl border border-slate-200 p-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all resize-none bg-white"
+                    placeholder="Enter your field verification findings and remarks..."
+                  />
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleVerifyAction('APPROVE')}
+                    disabled={verifying}
+                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold py-2.5 rounded-xl hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50"
+                  >
+                    <Check className="h-4 w-4" />
+                    Verify & Approve
+                  </button>
+                  <button
+                    onClick={() => handleVerifyAction('REJECT')}
+                    disabled={verifying}
+                    className="flex-1 flex items-center justify-center gap-2 bg-rose-600 text-white font-bold py-2.5 rounded-xl hover:bg-rose-700 transition-all shadow-sm disabled:opacity-50"
+                  >
+                    <X className="h-4 w-4" />
+                    Reject Application
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

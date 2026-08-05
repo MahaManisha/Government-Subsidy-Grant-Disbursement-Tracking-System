@@ -38,4 +38,5 @@ public class ApplicationDto {
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
+    private DisbursementDto disbursement;
 }

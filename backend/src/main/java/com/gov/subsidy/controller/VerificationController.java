@@ -302,6 +302,25 @@ public class VerificationController {
         return ResponseEntity.ok(BaseResponse.success(result, "Finance review action applied."));
     }
 
+    @PostMapping("/release-funds")
+    @Operation(
+            summary = "Step 5 — Release Funds",
+            description = "Releases funds for a FINANCE_APPROVED application, deducting from scheme budget and marking as DISBURSED."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Funds released successfully"),
+            @ApiResponse(responseCode = "400", description = "Application is not FINANCE_APPROVED or insufficient budget")
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
+    public ResponseEntity<BaseResponse<VerificationDto>> releaseFunds(
+            @Parameter(description = "Application primary key", example = "1", required = true)
+            @PathVariable Long applicationId,
+            @RequestParam(required = false) Long officerId) {
+
+        VerificationDto result = verificationService.releaseFunds(applicationId, officerId);
+        return ResponseEntity.ok(BaseResponse.success(result, "Funds released successfully."));
+    }
+
     // =========================================================================
     // GET … — Get Current Verification State
     // =========================================================================

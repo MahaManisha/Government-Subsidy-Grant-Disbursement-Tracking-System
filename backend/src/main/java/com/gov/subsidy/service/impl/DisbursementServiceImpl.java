@@ -9,6 +9,7 @@ import com.gov.subsidy.enums.ApplicationStatus;
 import com.gov.subsidy.enums.ComplianceStatus;
 import com.gov.subsidy.enums.DisbursementPlanStatus;
 import com.gov.subsidy.enums.DisbursementStatus;
+import com.gov.subsidy.enums.WorkflowStage;
 import com.gov.subsidy.exception.DuplicateResourceException;
 import com.gov.subsidy.exception.ResourceNotFoundException;
 import com.gov.subsidy.mapper.DisbursementPlanMapper;
@@ -225,12 +226,23 @@ public class DisbursementServiceImpl implements DisbursementService {
 
         // Update application progress upon releasing milestone
         Application application = plan.getApplication();
-        if (milestoneNumber == 1) {
-            application.setWorkflowStatus(ApplicationStatus.READY_FOR_DISBURSEMENT);
-            application.setRemarks("Milestone 1 released. Awaiting compliance check before Milestone 2.");
+        
+        boolean allMilestonesPaid = savedPlan.getMilestones().stream()
+                .allMatch(m -> m.getPaymentStatus() == DisbursementStatus.SUCCESS);
+                
+        if (allMilestonesPaid) {
+            application.setWorkflowStatus(ApplicationStatus.DISBURSED);
+            application.setCurrentStage(WorkflowStage.COMPLETED);
+            application.setRemarks("All milestones released successfully. Disbursement completed.");
         } else {
-            application.setRemarks("Milestone " + milestoneNumber + " released. Awaiting compliance check before next milestone.");
+            application.setWorkflowStatus(ApplicationStatus.READY_FOR_DISBURSEMENT);
+            if (milestoneNumber == 1) {
+                application.setRemarks("Milestone 1 released. Awaiting compliance check before Milestone 2.");
+            } else {
+                application.setRemarks("Milestone " + milestoneNumber + " released. Awaiting compliance check before next milestone.");
+            }
         }
+        
         applicationRepository.save(application);
 
         return planMapper.toDto(savedPlan);

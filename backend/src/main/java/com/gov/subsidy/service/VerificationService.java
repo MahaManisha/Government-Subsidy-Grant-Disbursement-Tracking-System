@@ -77,6 +77,18 @@ public interface VerificationService {
     VerificationDto performFinanceReview(Long applicationId, VerificationActionRequestDto request);
 
     /**
+     * Step 5 — Release Funds.
+     *
+     * <p>Allowed when status is FINANCE_APPROVED.
+     * Transitions application to DISBURSED.</p>
+     *
+     * @param applicationId the application ID
+     * @param officerId     the finance officer ID
+     * @return updated Verification state with appended history
+     */
+    VerificationDto releaseFunds(Long applicationId, Long officerId);
+
+    /**
      * Retrieve the current Verification record for an application,
      * including its full audit history.
      *

@@ -14,6 +14,10 @@ import com.gov.subsidy.mapper.UserMapper;
 import com.gov.subsidy.repository.ApplicationRepository;
 import com.gov.subsidy.repository.RoutingRecordRepository;
 import com.gov.subsidy.repository.UserRepository;
+import com.gov.subsidy.repository.VerificationRepository;
+import com.gov.subsidy.repository.VerificationHistoryRepository;
+import com.gov.subsidy.entity.Verification;
+import com.gov.subsidy.entity.VerificationHistory;
 import com.gov.subsidy.service.RoutingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +58,8 @@ public class RoutingServiceImpl implements RoutingService {
     private final ApplicationMapper        applicationMapper;
     private final RoutingMapper            routingMapper;
     private final UserMapper               userMapper;
+    private final VerificationRepository   verificationRepository;
+    private final VerificationHistoryRepository verificationHistoryRepository;
 
     public RoutingServiceImpl(ApplicationRepository applicationRepository,
                                UserRepository userRepository,
@@ -61,7 +67,9 @@ public class RoutingServiceImpl implements RoutingService {
                                RoutingConfig routingConfig,
                                ApplicationMapper applicationMapper,
                                RoutingMapper routingMapper,
-                               UserMapper userMapper) {
+                               UserMapper userMapper,
+                               VerificationRepository verificationRepository,
+                               VerificationHistoryRepository verificationHistoryRepository) {
         this.applicationRepository   = applicationRepository;
         this.userRepository          = userRepository;
         this.routingRecordRepository = routingRecordRepository;
@@ -69,6 +77,8 @@ public class RoutingServiceImpl implements RoutingService {
         this.applicationMapper       = applicationMapper;
         this.routingMapper           = routingMapper;
         this.userMapper              = userMapper;
+        this.verificationRepository  = verificationRepository;
+        this.verificationHistoryRepository = verificationHistoryRepository;
     }
 
     // =========================================================================
@@ -181,6 +191,11 @@ public class RoutingServiceImpl implements RoutingService {
 
         applicationRepository.save(app);
 
+        // Ensure Verification record exists
+        if (assignedOfficer != null) {
+            ensureVerificationRecord(app, assignedOfficer, rationale);
+        }
+
         // ── Persist routing record ─────────────────────────────────────────────
         RoutingRecord record = buildRecord(app, decision, assignedOfficer, null,
                 score, amount, rationale, null, true);
@@ -250,6 +265,10 @@ public class RoutingServiceImpl implements RoutingService {
         app.setWorkflowStatus(ApplicationStatus.UNDER_REVIEW);
         app.setLastModifiedDate(LocalDateTime.now());
         applicationRepository.save(app);
+        
+        if (escalateTo != null) {
+            ensureVerificationRecord(app, escalateTo, rationale);
+        }
 
         RoutingRecord record = buildRecord(app, RoutingDecision.ESCALATED, escalateTo, actionedBy,
                 app.getEligibilityScore(), app.getRequestedAmount(), rationale, request.getRemarks(), false);
@@ -282,6 +301,10 @@ public class RoutingServiceImpl implements RoutingService {
         app.setWorkflowStatus(ApplicationStatus.UNDER_REVIEW);
         app.setLastModifiedDate(LocalDateTime.now());
         applicationRepository.save(app);
+        
+        if (newOfficer != null) {
+            ensureVerificationRecord(app, newOfficer, rationale);
+        }
 
         RoutingRecord record = buildRecord(app, RoutingDecision.REASSIGNED, newOfficer, actionedBy,
                 app.getEligibilityScore(), app.getRequestedAmount(), rationale, request.getRemarks(), false);
@@ -418,5 +441,42 @@ public class RoutingServiceImpl implements RoutingService {
 
     private String nullSafe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void ensureVerificationRecord(Application app, User assignedOfficer, String remarks) {
+        if (assignedOfficer == null) return;
+        Verification verification = verificationRepository.findByApplicationId(app.getId()).orElse(null);
+        if (verification == null) {
+            verification = Verification.builder()
+                    .application(app)
+                    .fieldOfficer(assignedOfficer)
+                    .status(VerificationStatus.PENDING)
+                    .remarks(remarks != null && remarks.length() > 500 ? remarks.substring(0, 500) : remarks)
+                    .build();
+            verification = verificationRepository.save(verification);
+            
+            VerificationHistory history = VerificationHistory.builder()
+                    .verification(verification)
+                    .officer(assignedOfficer)
+                    .status(VerificationStatus.PENDING)
+                    .remarks("Verification workflow initiated. " + (remarks != null && remarks.length() > 400 ? remarks.substring(0, 400) : remarks))
+                    .actionDate(LocalDateTime.now())
+                    .build();
+            verificationHistoryRepository.save(history);
+        } else {
+            verification.setFieldOfficer(assignedOfficer);
+            verification.setStatus(VerificationStatus.PENDING);
+            verification.setRemarks(remarks != null && remarks.length() > 500 ? remarks.substring(0, 500) : remarks);
+            verificationRepository.save(verification);
+            
+            VerificationHistory history = VerificationHistory.builder()
+                    .verification(verification)
+                    .officer(assignedOfficer)
+                    .status(VerificationStatus.PENDING)
+                    .remarks("Verification workflow reassigned/escalated. " + (remarks != null && remarks.length() > 400 ? remarks.substring(0, 400) : remarks))
+                    .actionDate(LocalDateTime.now())
+                    .build();
+            verificationHistoryRepository.save(history);
+        }
     }
 }

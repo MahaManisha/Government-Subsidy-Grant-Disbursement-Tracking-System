@@ -287,7 +287,7 @@ function BeneficiaryDashboard({ auth }) {
   // Helper to resolve active step in stepper tracker
   const getActiveStep = (app) => {
     if (app.workflowStatus === 'DISBURSED') return 6;
-    if (app.workflowStatus === 'APPROVED' || app.workflowStatus === 'PAYMENT_APPROVED' || app.currentStage === 'COMPLETED') return 5;
+    if (app.workflowStatus === 'READY_FOR_DISBURSEMENT' || app.workflowStatus === 'FINANCE_APPROVED' || app.workflowStatus === 'APPROVED' || app.workflowStatus === 'PAYMENT_APPROVED' || app.currentStage === 'COMPLETED') return 6;
     if (app.currentStage === 'FINANCE_REVIEW' || app.currentStage === 'FINANCE_REVIEW_PENDING') return 5;
     if (app.currentStage === 'DISTRICT_REVIEW' || app.currentStage === 'DISTRICT_REVIEW_PENDING' || app.workflowStatus === 'DISTRICT_APPROVED') return 4;
     if (app.currentStage === 'FIELD_VERIFICATION' || app.workflowStatus === 'FIELD_VERIFIED') return 3;
@@ -464,7 +464,7 @@ function BeneficiaryDashboard({ auth }) {
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Quick Actions</h3>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
               <Link
-                to="/applications/add"
+                to="/applications/new"
                 className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-blue-200 bg-slate-50/50 hover:bg-blue-50/20 text-center transition-all group"
               >
                 <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
@@ -519,7 +519,7 @@ function BeneficiaryDashboard({ auth }) {
               <div className="py-8 text-center text-slate-400">
                 <AlertCircle className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                 <p className="text-sm font-medium">No application records found.</p>
-                <Link to="/applications/add" className="text-xs text-blue-600 font-bold hover:underline mt-1 inline-block">Apply for a scheme to get started</Link>
+                <Link to="/applications/new" className="text-xs text-blue-600 font-bold hover:underline mt-1 inline-block">Apply for a scheme to get started</Link>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -586,7 +586,13 @@ function BeneficiaryDashboard({ auth }) {
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between text-xs font-bold text-slate-500">
                                   <span>APPLICATION PIPELINE TRACKER</span>
-                                  <span>Current Stage: <strong className="text-blue-600 capitalize">{app.currentStage?.toLowerCase().replace('_', ' ')}</strong></span>
+                                  <span>Current Stage: <strong className="text-blue-600 capitalize">
+                                    {app.currentStage === 'COMPLETED' ? 'Completed' : 
+                                     (app.workflowStatus === 'READY_FOR_DISBURSEMENT' || app.workflowStatus === 'FINANCE_APPROVED') ? 'Pending Disbursement' :
+                                     app.workflowStatus === 'DISTRICT_APPROVED' ? 'Pending Finance Review' :
+                                     app.workflowStatus === 'FIELD_VERIFIED' ? 'Pending District Review' :
+                                     app.currentStage?.toLowerCase().replace(/_/g, ' ')}
+                                  </strong></span>
                                 </div>
                                 
                                 {app.workflowStatus === 'REJECTED' || app.workflowStatus === 'ELIGIBILITY_REJECTED' ? (
@@ -721,7 +727,7 @@ function BeneficiaryDashboard({ auth }) {
 
                         <div className="flex items-center space-x-2 pt-2">
                           <Link
-                            to={`/applications/add?schemeId=${scheme.id}`}
+                            to={`/applications/new?schemeId=${scheme.id}`}
                             className="flex-1 h-8 rounded-lg bg-blue-600 text-xs font-bold text-white flex items-center justify-center hover:bg-blue-700 transition-all"
                           >
                             Apply Now

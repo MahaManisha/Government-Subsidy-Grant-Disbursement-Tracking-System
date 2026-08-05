@@ -143,4 +143,6 @@ public class Application extends BaseEntity {
                 ", isFlagged=" + isFlagged +
                 '}';
     }
+    @OneToOne(mappedBy = "application", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private Disbursement disbursement;
 }

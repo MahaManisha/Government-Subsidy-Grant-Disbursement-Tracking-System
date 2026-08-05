@@ -59,6 +59,10 @@ import java.util.stream.Collectors;
  */
 import com.gov.subsidy.entity.ApplicationDocument;
 import com.gov.subsidy.repository.ApplicationDocumentRepository;
+import com.gov.subsidy.service.RoutingService;
+import com.gov.subsidy.entity.WorkflowAuditLog;
+import com.gov.subsidy.repository.WorkflowAuditLogRepository;
+import com.gov.subsidy.enums.WorkflowEvent;
 
 @Service
 @Transactional
@@ -76,6 +80,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationDocumentRepository documentRepository;
     private final List<EligibilityRule> rules;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final @org.springframework.context.annotation.Lazy RoutingService routingService;
+    private final WorkflowAuditLogRepository auditLogRepository;
 
     public ApplicationServiceImpl(ApplicationRepository applicationRepository,
                                    BeneficiaryRepository beneficiaryRepository,
@@ -86,7 +92,9 @@ public class ApplicationServiceImpl implements ApplicationService {
                                    VerificationHistoryRepository verificationHistoryRepository,
                                    ApplicationDocumentRepository documentRepository,
                                    List<EligibilityRule> rules,
-                                   org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+                                   org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                                   @org.springframework.context.annotation.Lazy RoutingService routingService,
+                                   WorkflowAuditLogRepository auditLogRepository) {
         this.applicationRepository = applicationRepository;
         this.beneficiaryRepository = beneficiaryRepository;
         this.schemeRepository = schemeRepository;
@@ -97,6 +105,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         this.documentRepository = documentRepository;
         this.rules = rules;
         this.jdbcTemplate = jdbcTemplate;
+        this.routingService = routingService;
+        this.auditLogRepository = auditLogRepository;
     }
 
     @jakarta.annotation.PostConstruct
@@ -287,11 +297,11 @@ public class ApplicationServiceImpl implements ApplicationService {
                 String benState = beneficiary.getState() != null ? beneficiary.getState() : "";
                 String benDistrict = beneficiary.getDistrict() != null ? beneficiary.getDistrict() : "";
                 boolean geoPass = true;
-                if (scheme.getState() != null && !scheme.getState().isBlank() && !scheme.getState().equalsIgnoreCase("ANY") && !scheme.getState().equalsIgnoreCase(benState)) {
+                if (scheme.getState() != null && !scheme.getState().isBlank() && !scheme.getState().equalsIgnoreCase("ANY") && !scheme.getState().replaceAll("\\s+", "").equalsIgnoreCase(benState.replaceAll("\\s+", ""))) {
                     failedReasons.add("State " + benState + " does not match required state " + scheme.getState());
                     geoPass = false;
                 }
-                if (scheme.getDistrict() != null && !scheme.getDistrict().isBlank() && !scheme.getDistrict().equalsIgnoreCase("ANY") && !scheme.getDistrict().equalsIgnoreCase(benDistrict)) {
+                if (scheme.getDistrict() != null && !scheme.getDistrict().isBlank() && !scheme.getDistrict().equalsIgnoreCase("ANY") && !scheme.getDistrict().replaceAll("\\s+", "").equalsIgnoreCase(benDistrict.replaceAll("\\s+", ""))) {
                     failedReasons.add("District " + benDistrict + " does not match required district " + scheme.getDistrict());
                     geoPass = false;
                 }
@@ -349,32 +359,16 @@ public class ApplicationServiceImpl implements ApplicationService {
 
             if (failedReasons.isEmpty()) {
                 saved.setEligibilityResult(EligibilityResult.ELIGIBLE);
-                saved.setWorkflowStatus(ApplicationStatus.ELIGIBILITY_VERIFIED);
-                saved.setCurrentStage(WorkflowStage.FIELD_VERIFICATION_PENDING);
+                saved.setWorkflowStatus(ApplicationStatus.SUBMITTED);
+                saved.setCurrentStage(WorkflowStage.INITIATION);
 
-                // Auto-assign to least loaded field officer
-                List<User> officers = userRepository.findLeastLoadedActiveUsersByRole(RoleType.ROLE_FIELD_OFFICER);
-                if (!officers.isEmpty()) {
-                    User officer = officers.get(0);
-                    saved.setAssignedOfficer(officer);
+                saved.setLastModifiedDate(LocalDateTime.now());
+                Application finalSaved = applicationRepository.save(saved);
+                
+                // Route application through the standard engine
+                routingService.routeApplication(finalSaved.getId());
 
-                    Verification verification = Verification.builder()
-                            .application(saved)
-                            .fieldOfficer(officer)
-                            .status(VerificationStatus.PENDING)
-                            .remarks("Auto-routed to least loaded Field Officer.")
-                            .build();
-                    Verification savedVerification = verificationRepository.save(verification);
-
-                    VerificationHistory history = VerificationHistory.builder()
-                            .verification(savedVerification)
-                            .officer(officer)
-                            .status(VerificationStatus.PENDING)
-                            .remarks("Verification workflow initiated. Assigned to " + officer.getUsername())
-                            .actionDate(LocalDateTime.now())
-                            .build();
-                    verificationHistoryRepository.save(history);
-                }
+                return applicationMapper.toDto(finalSaved);
             } else {
                 saved.setEligibilityResult(EligibilityResult.NOT_ELIGIBLE);
                 saved.setWorkflowStatus(ApplicationStatus.ELIGIBILITY_REJECTED);
@@ -385,11 +379,28 @@ public class ApplicationServiceImpl implements ApplicationService {
                     reasonStr = reasonStr.substring(0, 250);
                 }
                 saved.setRejectionReason(reasonStr);
+                saved.setLastModifiedDate(LocalDateTime.now());
+                Application finalSaved = applicationRepository.save(saved);
+
+                // Save an audit log for auto-rejection
+                WorkflowAuditLog log = WorkflowAuditLog.builder()
+                        .application(finalSaved)
+                        .event(WorkflowEvent.AUTO_ELIGIBILITY_REJECTION)
+                        .fromStatus(ApplicationStatus.SUBMITTED)
+                        .toStatus(ApplicationStatus.ELIGIBILITY_REJECTED)
+                        .fromStage(WorkflowStage.INITIATION)
+                        .toStage(WorkflowStage.INITIATION)
+                        .actor("SYSTEM")
+                        .description("Automated eligibility check failed: " + reasonStr)
+                        .automated(true)
+                        .occurredAt(LocalDateTime.now())
+                        .build();
+                auditLogRepository.save(log);
+
+                return applicationMapper.toDto(finalSaved);
             }
 
-            saved.setLastModifiedDate(LocalDateTime.now());
-            Application finalSaved = applicationRepository.save(saved);
-            return applicationMapper.toDto(finalSaved);
+
         } catch (Exception ex) {
             throw new IllegalArgumentException("Eligibility evaluation failed: " + ex.getMessage(), ex);
         }
@@ -487,16 +498,19 @@ public class ApplicationServiceImpl implements ApplicationService {
         return list.stream()
                 .filter(a -> {
                     if (isFieldOfficer) {
-                        return a.getCurrentStage() == WorkflowStage.FIELD_VERIFICATION_PENDING 
-                                || a.getCurrentStage() == WorkflowStage.FIELD_VERIFICATION;
+                        return (a.getCurrentStage() == WorkflowStage.FIELD_VERIFICATION_PENDING 
+                                || a.getCurrentStage() == WorkflowStage.FIELD_VERIFICATION)
+                                && a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId());
                     }
                     if (isDistrictOfficer) {
-                        return a.getCurrentStage() == WorkflowStage.DISTRICT_REVIEW_PENDING 
-                                || a.getCurrentStage() == WorkflowStage.DISTRICT_REVIEW;
+                        return (a.getCurrentStage() == WorkflowStage.DISTRICT_REVIEW_PENDING 
+                                || a.getCurrentStage() == WorkflowStage.DISTRICT_REVIEW)
+                                && a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId());
                     }
                     if (isFinanceOfficer) {
-                        return a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW_PENDING 
-                                || a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW;
+                        return (a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW_PENDING 
+                                || a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW)
+                                && a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId());
                     }
                     if (isBeneficiary) {
                         if (a.getBeneficiary() == null) return false;
@@ -545,5 +559,23 @@ public class ApplicationServiceImpl implements ApplicationService {
             return all.stream().map(applicationMapper::toDto).collect(Collectors.toList());
         }
         return matched;
+    }
+
+    @Override
+    public ApplicationDto getApplicationById(Long id) {
+        Application app = applicationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found with ID: " + id));
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            String username = auth.getName();
+            boolean isFieldOfficer = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_FIELD_OFFICER"));
+            if (isFieldOfficer) {
+                if (app.getAssignedOfficer() == null || !app.getAssignedOfficer().getUsername().equals(username)) {
+                    throw new org.springframework.security.access.AccessDeniedException("Unauthorized: Application is not assigned to you.");
+                }
+            }
+        }
+        return applicationMapper.toDto(app);
     }
 }

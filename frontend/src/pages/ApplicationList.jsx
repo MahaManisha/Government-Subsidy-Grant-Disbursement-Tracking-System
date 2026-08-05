@@ -66,7 +66,7 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
   // -----------------------------------------------------------------------
   const filtered = applications.filter(a => {
     const benName = a.beneficiary
-      ? (a.beneficiary.name || `${a.beneficiary.firstName || ''} ${a.beneficiary.lastName || ''}`.trim())
+      ? (a.beneficiary.user?.firstName + ' ' + (a.beneficiary.user?.lastName || '')).trim()
       : '';
     const schemeName = a.scheme ? (a.scheme.name || '') : '';
     const appNo = a.applicationNumber || '';
@@ -167,7 +167,7 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
           </button>
           {!filterAssigned && (
             <Link
-              to="/applications/add"
+              to="/applications/new"
               className="flex h-10 items-center justify-center space-x-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-all shadow-sm"
             >
               <Plus className="h-4 w-4" />
@@ -261,9 +261,9 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
                         <td className="px-6 py-4">
                           <div className="space-y-0.5">
                             <p className="font-semibold text-slate-800 whitespace-nowrap">
-                              {a.beneficiary?.name ||
-                                `${a.beneficiary?.firstName || ''} ${a.beneficiary?.lastName || ''}`.trim() ||
-                                'N/A'}
+                              {a.beneficiary?.user?.firstName 
+                                ? `${a.beneficiary.user.firstName} ${a.beneficiary.user.lastName || ''}`.trim()
+                                : 'N/A'}
                             </p>
                             <p className="text-[10px] text-slate-400 font-mono">
                               UID: {a.beneficiary?.uniqueIdNumber || 'N/A'}

@@ -87,11 +87,14 @@ public class EligibilityServiceImpl implements EligibilityService {
                 ? EligibilityResult.ELIGIBLE
                 : EligibilityResult.REJECTED;
 
-        // --- 4. Persist score and result on the application entity ---
-        application.setEligibilityScore(totalScore);
-        application.setEligibilityResult(result);
-        application.setLastModifiedDate(LocalDateTime.now());
-        applicationRepository.save(application);
+        // --- 4. Persist score and result on the application entity ONLY if in INITIATION stage ---
+        // Once the application progresses past the initial stage, viewing the score should not retroactively reject it.
+        if (application.getCurrentStage() == com.gov.subsidy.enums.WorkflowStage.INITIATION) {
+            application.setEligibilityScore(totalScore);
+            application.setEligibilityResult(result);
+            application.setLastModifiedDate(LocalDateTime.now());
+            applicationRepository.save(application);
+        }
 
         // --- 5. Build and return detailed response ---
         List<EligibilityScoringResponseDto.RuleBreakdownDto> breakdown = ruleResults.stream()

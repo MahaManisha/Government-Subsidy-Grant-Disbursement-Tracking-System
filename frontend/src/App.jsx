@@ -24,9 +24,11 @@ import Users from './pages/Users';
 import Register from './pages/Register';
 import DistrictDashboard from './pages/DistrictDashboard';
 import DistrictReviews from './pages/DistrictReviews';
+import DistrictReviewDetails from './pages/DistrictReviewDetails';
 import DistrictVerification from './pages/DistrictVerification';
 import FieldOfficerDashboard from './pages/FieldOfficerDashboard';
 import FinanceOfficerDashboard from './pages/FinanceOfficerDashboard';
+import FinanceReviewDetails from './pages/FinanceReviewDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 // Dynamic redirect helper for beneficiary role attempting to access admin list endpoints
 function BeneficiaryRedirectRoute({ targetPath, allowedRoles, children }) {
@@ -168,6 +170,14 @@ export default function App() {
               }
             />
             <Route
+              path="/applications/new"
+              element={
+                <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_BENEFICIARY']}>
+                  <ApplicationForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/applications/add"
               element={
                 <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_BENEFICIARY']}>
@@ -213,6 +223,14 @@ export default function App() {
               }
             />
             <Route
+              path="/verification/district/reviews/:id"
+              element={
+                <ProtectedRoute allowedRoles={['ROLE_DISTRICT_OFFICER']}>
+                  <DistrictReviewDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/verification/district/verification"
               element={
                 <ProtectedRoute allowedRoles={['ROLE_DISTRICT_OFFICER']}>
@@ -225,6 +243,14 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['ROLE_FINANCE_OFFICER']}>
                   <Verification filterFinance={true} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/verification/finance/reviews/:id"
+              element={
+                <ProtectedRoute allowedRoles={['ROLE_FINANCE_OFFICER']}>
+                  <FinanceReviewDetails />
                 </ProtectedRoute>
               }
             />

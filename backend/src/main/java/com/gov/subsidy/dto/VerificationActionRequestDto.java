@@ -49,4 +49,10 @@ public class VerificationActionRequestDto {
             example = "Income certificate found to be fraudulent."
     )
     private String rejectionReason;
+
+    @Schema(
+            description = "Amount sanctioned during finance approval. Required when action is APPROVE.",
+            example = "5000.00"
+    )
+    private java.math.BigDecimal approvedAmount;
 }
