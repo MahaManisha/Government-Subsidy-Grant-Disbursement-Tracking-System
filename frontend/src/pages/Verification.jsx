@@ -47,9 +47,9 @@ export default function Verification({ filterDistrict, filterFinance }) {
 
         // Apply role-based filters on real API data — no localStorage
         if (filterDistrict) {
-          list = list.filter(a => a.currentStage === 'DISTRICT_REVIEW');
+          list = list.filter(a => a.currentStage === 'DISTRICT_REVIEW' || a.currentStage === 'DISTRICT_REVIEW_PENDING');
         } else if (filterFinance) {
-          list = list.filter(a => a.currentStage === 'FINANCE_REVIEW');
+          list = list.filter(a => a.currentStage === 'FINANCE_REVIEW' || a.currentStage === 'FINANCE_REVIEW_PENDING');
         } else if (activeRole === 'ROLE_FIELD_OFFICER') {
           // Only show applications assigned to this specific officer
           list = list.filter(a => {
@@ -182,11 +182,11 @@ export default function Verification({ filterDistrict, filterFinance }) {
     // Determine the correct API endpoint for the current workflow stage
     const currentStage = currentSelectedApp?.currentStage;
     let endpoint = '';
-    if (currentStage === 'FIELD_VERIFICATION') {
+    if (currentStage === 'FIELD_VERIFICATION' || currentStage === 'FIELD_VERIFICATION_PENDING') {
       endpoint = 'field-verify';
-    } else if (currentStage === 'DISTRICT_REVIEW') {
+    } else if (currentStage === 'DISTRICT_REVIEW' || currentStage === 'DISTRICT_REVIEW_PENDING') {
       endpoint = 'district-review';
-    } else if (currentStage === 'FINANCE_REVIEW') {
+    } else if (currentStage === 'FINANCE_REVIEW' || currentStage === 'FINANCE_REVIEW_PENDING') {
       endpoint = 'finance-review';
     }
 
@@ -430,7 +430,9 @@ export default function Verification({ filterDistrict, filterFinance }) {
                   <p className="text-slate-400 text-xs font-semibold">Beneficiary</p>
                   <p className="font-semibold text-slate-800 mt-0.5">
                     {currentSelectedApp.beneficiary?.name ||
-                      `${currentSelectedApp.beneficiary?.firstName || ''} ${currentSelectedApp.beneficiary?.lastName || ''}`.trim() ||
+                      (currentSelectedApp.beneficiary?.user?.firstName
+                        ? `${currentSelectedApp.beneficiary.user.firstName} ${currentSelectedApp.beneficiary.user.lastName || ''}`.trim()
+                        : `${currentSelectedApp.beneficiary?.firstName || ''} ${currentSelectedApp.beneficiary?.lastName || ''}`.trim()) ||
                       'N/A'}
                   </p>
                 </div>

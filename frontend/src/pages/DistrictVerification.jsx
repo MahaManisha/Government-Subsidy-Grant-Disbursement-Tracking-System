@@ -145,7 +145,8 @@ export default function DistrictVerification() {
   };
 
   const handleDownloadDoc = (doc) => {
-    const name = selectedApp?.beneficiary?.name || `${selectedApp?.beneficiary?.firstName || ''} ${selectedApp?.beneficiary?.lastName || ''}`;
+    const name = selectedApp?.beneficiary?.name || 
+      (selectedApp?.beneficiary?.user?.firstName ? `${selectedApp.beneficiary.user.firstName} ${selectedApp.beneficiary.user.lastName || ''}`.trim() : `${selectedApp?.beneficiary?.firstName || ''} ${selectedApp?.beneficiary?.lastName || ''}`.trim()) || 'N/A';
     const content = `GOVERNMENT OF INDIA - DBT PORTAL DOCUMENT DOWNLOAD
 --------------------------------------------------
 Document Type: ${doc.name}

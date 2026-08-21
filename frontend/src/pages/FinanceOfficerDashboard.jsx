@@ -28,6 +28,15 @@ const maskAccount = (acc) => {
   return '•'.repeat(acc.length - 4) + acc.slice(-4);
 };
 
+const getBenName = (b) => {
+  if (!b) return 'N/A';
+  if (b.name) return b.name;
+  if (b.user?.firstName) return `${b.user.firstName} ${b.user.lastName || ''}`.trim();
+  if (b.firstName) return `${b.firstName} ${b.lastName || ''}`.trim();
+  if (b.accountHolderName) return b.accountHolderName;
+  return 'N/A';
+};
+
 const STATUS_BADGE = {
   PENDING:   'bg-amber-50 text-amber-700',
   APPROVED:  'bg-emerald-50 text-emerald-700',
@@ -146,19 +155,28 @@ export default function FinanceOfficerDashboard() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [searchTerm, statusFilter]);
 
-  // ── Derived Data ────────────────────────────────────────────────────────────
-  // Finance approval queue: only applications at FINANCE_REVIEW or FINANCE_REVIEW_PENDING stage
-  const financeQueue = applications.filter(a => a.currentStage === 'FINANCE_REVIEW' || a.currentStage === 'FINANCE_REVIEW_PENDING');
+  // Finance approval queue: applications at FINANCE_REVIEW or FINANCE_REVIEW_PENDING stage that are pending approval
+  const financeQueue = applications.filter(a =>
+    (a.currentStage === 'FINANCE_REVIEW' || a.currentStage === 'FINANCE_REVIEW_PENDING') &&
+    a.workflowStatus !== 'FINANCE_APPROVED' &&
+    a.workflowStatus !== 'FINANCE_REJECTED' &&
+    a.workflowStatus !== 'DISBURSED' &&
+    a.workflowStatus !== 'REJECTED'
+  );
 
   // Approved by Finance
   const financeApproved = applications.filter(a =>
+    a.workflowStatus === 'FINANCE_APPROVED' ||
     a.workflowStatus === 'APPROVED' ||
     a.workflowStatus === 'READY_FOR_DISBURSEMENT' ||
     a.workflowStatus === 'DISBURSED'
   );
 
   // Rejected at Finance
-  const financeRejected = applications.filter(a => a.workflowStatus === 'REJECTED');
+  const financeRejected = applications.filter(a =>
+    a.workflowStatus === 'FINANCE_REJECTED' ||
+    a.workflowStatus === 'REJECTED'
+  );
 
   // Total funds released = sum of approved amounts for disbursed applications
   const totalReleased = applications
@@ -188,13 +206,13 @@ export default function FinanceOfficerDashboard() {
   // Filtered queue for the table
   const filteredQueue = financeQueue.filter(a => {
     const term = searchTerm.toLowerCase();
-    const name = a.beneficiary?.name || `${a.beneficiary?.firstName || ''} ${a.beneficiary?.lastName || ''}`.trim();
+    const name = getBenName(a.beneficiary);
     const matches =
       (a.applicationNumber || '').toLowerCase().includes(term) ||
       name.toLowerCase().includes(term) ||
       (a.scheme?.name || '').toLowerCase().includes(term) ||
       (a.beneficiary?.district || '').toLowerCase().includes(term);
-    const statusMatch = statusFilter === 'ALL' || a.workflowStatus === statusFilter;
+    const statusMatch = statusFilter === 'ALL' || a.workflowStatus === statusFilter || a.currentStage === statusFilter;
     return matches && statusMatch;
   });
 
@@ -410,7 +428,7 @@ export default function FinanceOfficerDashboard() {
                             {app.applicationNumber}
                           </td>
                           <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
-                            {app.beneficiary?.name || `${app.beneficiary?.firstName || ''} ${app.beneficiary?.lastName || ''}`.trim() || 'N/A'}
+                            {getBenName(app.beneficiary)}
                           </td>
                           <td className="px-4 py-3 max-w-[140px] truncate">{app.scheme?.name || 'N/A'}</td>
                           <td className="px-4 py-3">{app.beneficiary?.district || '—'}</td>
@@ -512,7 +530,7 @@ export default function FinanceOfficerDashboard() {
                       <tr key={a.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 font-mono font-bold text-slate-800">{a.applicationNumber}</td>
                         <td className="px-4 py-3 font-semibold text-slate-700">
-                          {a.beneficiary?.name || `${a.beneficiary?.firstName || ''} ${a.beneficiary?.lastName || ''}`.trim() || 'N/A'}
+                          {getBenName(a.beneficiary)}
                         </td>
                         <td className="px-4 py-3 font-semibold text-blue-700">{fmtINR(a.approvedAmount)}</td>
                         <td className="px-4 py-3">{fmtDate(a.lastModifiedDate)}</td>

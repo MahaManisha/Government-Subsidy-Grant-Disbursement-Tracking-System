@@ -79,9 +79,12 @@ export default function ApplicationList({ filterSelf, filterAssigned }) {
 
     const matchesStatus = statusFilter === 'ALL' || a.workflowStatus === statusFilter;
 
-    // Beneficiary self-view: show all applications belonging to the logged-in beneficiary
+    // Beneficiary self-view: show only applications belonging to the logged-in beneficiary
     if (filterSelf) {
-      return matchesSearch && matchesStatus;
+      const isMine =
+        (a.beneficiary?.user?.username && currentUser?.username && a.beneficiary.user.username === currentUser.username) ||
+        (a.beneficiary?.user?.id && currentUser?.id && a.beneficiary.user.id === currentUser.id);
+      return matchesSearch && matchesStatus && isMine;
     }
 
     // Field Officer view: show only applications assigned to this officer in FIELD_VERIFICATION stage

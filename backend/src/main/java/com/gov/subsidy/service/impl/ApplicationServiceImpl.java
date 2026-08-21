@@ -500,30 +500,30 @@ public class ApplicationServiceImpl implements ApplicationService {
                     if (isFieldOfficer) {
                         return (a.getCurrentStage() == WorkflowStage.FIELD_VERIFICATION_PENDING 
                                 || a.getCurrentStage() == WorkflowStage.FIELD_VERIFICATION)
-                                && a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId());
+                                || (a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId()));
                     }
                     if (isDistrictOfficer) {
                         return (a.getCurrentStage() == WorkflowStage.DISTRICT_REVIEW_PENDING 
                                 || a.getCurrentStage() == WorkflowStage.DISTRICT_REVIEW)
-                                && a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId());
+                                || (a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId()));
                     }
                     if (isFinanceOfficer) {
-                        return (a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW_PENDING 
-                                || a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW)
-                                && a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId());
+                        return a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW_PENDING 
+                                || a.getCurrentStage() == WorkflowStage.FINANCE_REVIEW
+                                || a.getCurrentStage() == WorkflowStage.COMPLETED
+                                || a.getWorkflowStatus() == ApplicationStatus.DISTRICT_APPROVED
+                                || a.getWorkflowStatus() == ApplicationStatus.FINANCE_APPROVED
+                                || a.getWorkflowStatus() == ApplicationStatus.FINANCE_REJECTED
+                                || a.getWorkflowStatus() == ApplicationStatus.DISBURSED
+                                || a.getWorkflowStatus() == ApplicationStatus.READY_FOR_DISBURSEMENT
+                                || (a.getAssignedOfficer() != null && a.getAssignedOfficer().getId().equals(user.getId()));
                     }
                     if (isBeneficiary) {
                         if (a.getBeneficiary() == null) return false;
                         if (a.getBeneficiary().getUser() != null && username.equals(a.getBeneficiary().getUser().getUsername())) {
                             return true;
                         }
-                        User currentUser = userRepository.findByUsername(username).orElse(null);
-                        if (currentUser != null && a.getBeneficiary().getUser() != null) {
-                            if (currentUser.getId().equals(a.getBeneficiary().getUser().getId())) {
-                                return true;
-                            }
-                        }
-                        return true; // Default allow beneficiary to view application records
+                        return user != null && a.getBeneficiary().getUser() != null && user.getId().equals(a.getBeneficiary().getUser().getId());
                     }
                     return false;
                 })
@@ -540,25 +540,19 @@ public class ApplicationServiceImpl implements ApplicationService {
         String username = auth.getName();
         User user = userRepository.findByUsername(username).orElse(null);
         if (user == null) {
-            return applicationRepository.findAll().stream().map(applicationMapper::toDto).collect(Collectors.toList());
+            return new ArrayList<>();
         }
         Beneficiary ben = beneficiaryRepository.findByUserId(user.getId()).orElse(null);
         if (ben != null) {
             List<Application> apps = applicationRepository.findByBeneficiaryId(ben.getId());
-            if (!apps.isEmpty()) {
-                return apps.stream().map(applicationMapper::toDto).collect(Collectors.toList());
-            }
+            return apps.stream().map(applicationMapper::toDto).collect(Collectors.toList());
         }
         List<Application> all = applicationRepository.findAll();
-        List<ApplicationDto> matched = all.stream()
-                .filter(a -> a.getBeneficiary() != null && a.getBeneficiary().getUser() != null && username.equals(a.getBeneficiary().getUser().getUsername()))
+        return all.stream()
+                .filter(a -> a.getBeneficiary() != null && a.getBeneficiary().getUser() != null 
+                        && (username.equals(a.getBeneficiary().getUser().getUsername()) || user.getId().equals(a.getBeneficiary().getUser().getId())))
                 .map(applicationMapper::toDto)
                 .collect(Collectors.toList());
-
-        if (matched.isEmpty()) {
-            return all.stream().map(applicationMapper::toDto).collect(Collectors.toList());
-        }
-        return matched;
     }
 
     @Override

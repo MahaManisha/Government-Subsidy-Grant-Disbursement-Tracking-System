@@ -6,6 +6,15 @@ import { useRole } from '../layouts/ProtectedLayout';
 
 import { exportApplicationsCSV } from '../api/exportHelper';
 
+const getBeneficiaryName = (b) => {
+  if (!b) return 'N/A';
+  if (b.name) return b.name;
+  if (b.user?.firstName) return `${b.user.firstName} ${b.user.lastName || ''}`.trim();
+  if (b.firstName) return `${b.firstName} ${b.lastName || ''}`.trim();
+  if (b.accountHolderName) return b.accountHolderName;
+  return 'N/A';
+};
+
 export default function FieldOfficerDashboard() {
   const auth = useRole();
   const [applications, setApplications] = useState([]);
@@ -265,8 +274,7 @@ Details: ${doc.desc}
   const filteredApps = appsToFilter.filter(a => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = a.applicationNumber?.toLowerCase().includes(term) ||
-      a.beneficiary?.name?.toLowerCase().includes(term) ||
-      `${a.beneficiary?.firstName || ''} ${a.beneficiary?.lastName || ''}`.toLowerCase().includes(term) ||
+      getBeneficiaryName(a.beneficiary).toLowerCase().includes(term) ||
       a.scheme?.name?.toLowerCase().includes(term);
 
     const matchesStatus = filterStatus === 'ALL' ||
@@ -404,7 +412,7 @@ Details: ${doc.desc}
                           return (
                             <tr key={app.id} className="hover:bg-slate-50/40 transition-all">
                               <td className="px-3 py-3.5 font-bold text-indigo-650">{app.applicationNumber}</td>
-                              <td className="px-3 py-3.5 text-slate-800">{app.beneficiary?.name || `${app.beneficiary?.firstName || ''} ${app.beneficiary?.lastName || 'N/A'}`}</td>
+                              <td className="px-3 py-3.5 text-slate-800">{getBeneficiaryName(app.beneficiary)}</td>
                               <td className="px-3 py-3.5 text-slate-650 truncate max-w-[120px]">{app.scheme?.name || 'N/A'}</td>
                               <td className="px-3 py-3.5 text-slate-500">{app.beneficiary?.district || app.beneficiary?.state || '—'}</td>
                               <td className="px-3 py-3.5 text-slate-450">{app.submittedDate ? new Date(app.submittedDate).toLocaleDateString() : 'N/A'}</td>
@@ -521,7 +529,7 @@ Details: ${doc.desc}
                   <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider">Beneficiary Profile</h3>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 text-xs leading-relaxed">
-                  <div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-400 block font-semibold mb-0.5">Full Name</span><span className="font-bold text-slate-850 text-sm">{selectedApp.beneficiary?.name || `${selectedApp.beneficiary?.firstName || ''} ${selectedApp.beneficiary?.lastName || 'N/A'}`}</span></div>
+                  <div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-400 block font-semibold mb-0.5">Full Name</span><span className="font-bold text-slate-850 text-sm">{getBeneficiaryName(selectedApp.beneficiary)}</span></div>
                   <div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-400 block font-semibold mb-0.5">Unique ID (Aadhaar)</span><span className="font-mono font-bold text-slate-750 text-sm">{selectedApp.beneficiary?.uniqueIdNumber || 'N/A'}</span></div>
                   <div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-400 block font-semibold mb-0.5">Phone Number</span><span className="font-mono font-bold text-slate-750 text-sm">{selectedApp.beneficiary?.phoneNumber || 'N/A'}</span></div>
                   <div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-400 block font-semibold mb-0.5">Annual Income</span><span className="font-bold text-slate-850 text-sm">₹{selectedApp.beneficiary?.annualIncome?.toLocaleString() || '0'}</span></div>

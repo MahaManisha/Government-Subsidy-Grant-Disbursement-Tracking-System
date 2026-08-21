@@ -27,8 +27,11 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    if (status === 401) {
-      // Clear storage and notify context
+    const requestUrl = error.config?.url || '';
+    const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
+
+    if (status === 401 && !isAuthRequest) {
+      // Clear storage and notify context on session token expiration
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('user_info');
       localStorage.removeItem('active_role');
@@ -59,9 +62,9 @@ axiosInstance.interceptors.response.use(
     } else if (status === 400) {
       formattedMessage = serverMessage || 'Invalid request payload. Please check your entries.';
     } else if (status === 401) {
-      formattedMessage = 'Session expired. Please login again.';
+      formattedMessage = serverMessage || (isAuthRequest ? 'Invalid username or password.' : 'Session expired. Please login again.');
     } else if (status === 403) {
-      formattedMessage = 'You do not have permission to perform this action.';
+      formattedMessage = serverMessage || 'You do not have permission to perform this action.';
     } else if (status === 404) {
       formattedMessage = serverMessage || 'Requested resource was not found.';
     } else if (status === 409) {

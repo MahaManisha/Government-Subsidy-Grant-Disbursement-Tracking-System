@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, User, Award, Shield, Check, X, Pause, Send, ArrowRight, Printer, Download, Lock } from 'lucide-react';
+import { ChevronLeft, User, Award, Shield, Check, X, Pause, Send, ArrowRight, Printer, Download, Lock, Eye, FileText } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -50,6 +50,7 @@ export default function FinanceReviewDetails() {
   const [submitting, setSubmitting] = useState(false);
   const [app, setApp] = useState(null);
   const [officerId, setOfficerId] = useState(null);
+  const [documents, setDocuments] = useState([]);
 
   // Actions state
   const [actionType, setActionType] = useState('');
@@ -57,6 +58,37 @@ export default function FinanceReviewDetails() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvedAmount, setApprovedAmount] = useState('');
   const [showActionForm, setShowActionForm] = useState(false);
+
+  const handleViewDoc = async (docId) => {
+    try {
+      const response = await axiosInstance.get(`/v1/documents/${docId}/view`, {
+        responseType: 'blob'
+      });
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      window.open(`http://localhost:8081/api/v1/documents/${docId}/view`, '_blank');
+    }
+  };
+
+  const handleDownloadDoc = async (docId, fileName) => {
+    try {
+      const response = await axiosInstance.get(`/v1/documents/${docId}/download`, {
+        responseType: 'blob'
+      });
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || `document_${docId}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      window.open(`http://localhost:8081/api/v1/documents/${docId}/download`, '_blank');
+    }
+  };
 
   useEffect(() => {
     if (auth?.user?.id) {
@@ -84,6 +116,11 @@ export default function FinanceReviewDetails() {
         if (appRes.data && appRes.data.success) {
           setApp(appRes.data.data);
           setApprovedAmount(appRes.data.data.approvedAmount || appRes.data.data.requestedAmount || '');
+        }
+
+        const docRes = await axiosInstance.get(`/v1/applications/${id}/documents`);
+        if (docRes.data && docRes.data.success) {
+          setDocuments(docRes.data.data || []);
         }
       } catch (err) {
         console.error('Failed to load application details:', err);
@@ -287,6 +324,46 @@ export default function FinanceReviewDetails() {
                   <p className="font-semibold text-slate-800 mt-0.5">{app.eligibilityResult || 'N/A'}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Uploaded Documents */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between border-b border-slate-50 pb-2 mb-4">
+                <span className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-purple-500" /> Uploaded Documents
+                </span>
+                <span className="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">
+                  {documents.length} Files
+                </span>
+              </h3>
+              {documents.length > 0 ? (
+                <div className="space-y-3">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-xs gap-3">
+                      <div>
+                        <p className="font-bold text-slate-800">{doc.documentType || 'Document'}</p>
+                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{doc.originalFileName}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleViewDoc(doc.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </button>
+                        <button
+                          onClick={() => handleDownloadDoc(doc.id, doc.originalFileName)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No documents attached.</p>
+              )}
             </div>
 
             {/* District Officer Approval Info */}

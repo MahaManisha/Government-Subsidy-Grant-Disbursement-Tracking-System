@@ -389,21 +389,18 @@ export default function ApplicationDetails() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <a
-                        href={`http://localhost:8080/v1/documents/${doc.id}/view`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => handleViewDoc(doc.id)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 font-bold transition-all shadow-sm cursor-pointer"
                       >
                         <Eye className="h-3.5 w-3.5" /> View
-                      </a>
-                      <a
-                        href={`http://localhost:8080/v1/documents/${doc.id}/download`}
-                        download
+                      </button>
+                      <button
+                        onClick={() => handleDownloadDoc(doc.id, doc.originalFileName)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 font-bold transition-all shadow-sm cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" /> Download
-                      </a>
+                      </button>
                     </div>
                   </div>
                 ))}

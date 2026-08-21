@@ -65,14 +65,22 @@ export default function Disbursement({ isSelfStatus }) {
     }
   };
 
-  // Load applications from localStorage to find approved ones without plans
-  const loadApprovedApplications = () => {
-    const stored = localStorage.getItem('applications_ledger');
-    if (stored) {
-      const list = JSON.parse(stored);
-      // Filter applications that are APPROVED
-      const approved = list.filter(app => app.workflowStatus === 'APPROVED' || app.workflowStatus === 'DISBURSED');
-      setApprovedApplications(approved);
+  // Load applications from API to find approved ones without plans
+  const loadApprovedApplications = async () => {
+    try {
+      const response = await axiosInstance.get('/v1/applications');
+      if (response.data && response.data.success) {
+        const list = response.data.data || [];
+        const approved = list.filter(app =>
+          app.workflowStatus === 'FINANCE_APPROVED' ||
+          app.workflowStatus === 'APPROVED' ||
+          app.workflowStatus === 'READY_FOR_DISBURSEMENT' ||
+          app.workflowStatus === 'DISBURSED'
+        );
+        setApprovedApplications(approved);
+      }
+    } catch (err) {
+      console.error('Failed to load approved applications:', err);
     }
   };
 

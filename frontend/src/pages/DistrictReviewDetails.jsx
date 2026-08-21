@@ -223,7 +223,7 @@ export default function DistrictReviewDetails() {
                           <h5 className="font-bold text-[12px] text-slate-800 text-center">{activeDoc.documentType || 'Attached Document'}</h5>
                           <p className="text-[10px] text-slate-500 font-mono">{activeDoc.originalFileName}</p>
                           <a
-                            href={`http://localhost:8080/v1/documents/${activeDoc.id}/view`}
+                            href={`http://localhost:8081/api/v1/documents/${activeDoc.id}/view`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-4 py-2 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-all flex items-center gap-2 mt-2"

@@ -258,7 +258,7 @@ export default function DistrictDashboard() {
                       <span>{app.workflowStatus === 'DISTRICT_APPROVED' ? 'Approved application' : app.workflowStatus === 'DISTRICT_REJECTED' ? 'Rejected application' : 'Correction Requested'}</span>
                       <span className="text-[10px] text-slate-450">{app.lastModifiedDate ? new Date(app.lastModifiedDate).toLocaleDateString() : ''}</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold">Case: <span className="font-bold text-indigo-650">{app.applicationNumber}</span> | Beneficiary: {app.beneficiary?.name || `${app.beneficiary?.firstName || ''} ${app.beneficiary?.lastName || 'N/A'}`}</p>
+                    <p className="text-[10px] text-slate-500 font-semibold">Case: <span className="font-bold text-indigo-650">{app.applicationNumber}</span> | Beneficiary: {app.beneficiary?.name || (app.beneficiary?.user?.firstName ? `${app.beneficiary.user.firstName} ${app.beneficiary.user.lastName || ''}`.trim() : `${app.beneficiary?.firstName || ''} ${app.beneficiary?.lastName || 'N/A'}`)}</p>
                     {app.remarks && <p className="text-slate-600 italic text-[10px] bg-slate-50 p-2 rounded mt-1 font-medium border border-slate-100/50">"{app.remarks}"</p>}
                   </div>
                 ))}

@@ -120,7 +120,7 @@ export default function DistrictReviews() {
   const handleDownloadDoc = (doc) => {
     if (!doc) return;
     const link = document.createElement('a');
-    link.href = `http://localhost:8080/v1/documents/${doc.id}/download`;
+    link.href = `http://localhost:8081/api/v1/documents/${doc.id}/download`;
     link.download = doc.originalFileName;
     document.body.appendChild(link);
     link.click();
